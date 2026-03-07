@@ -44,7 +44,7 @@ class MageAustralia_Stripe_Model_Method_Card extends MageAustralia_Stripe_Model_
      */
     public function getFormBlockType(): string
     {
-        $integrationMode = $this->stripeHelper->getStoreConfig('payment/stripe_card/integration_mode');
+        $integrationMode = $this->getStripeHelper()->getStoreConfig('payment/stripe_card/integration_mode');
 
         if ($integrationMode === 'elements') {
             return 'stripe/payment_form_elements';
