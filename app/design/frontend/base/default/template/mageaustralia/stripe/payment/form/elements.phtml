@@ -2,15 +2,20 @@
 <?php $code = $this->getMethodCode(); ?>
 <ul class="form-list" id="payment_form_<?php echo $this->escapeHtml($code) ?>" style="display:none">
     <li>
-        <div id="stripe-card-element"></div>
+        <div id="stripe-card-element" style="padding: 10px 12px; border: 1px solid #ccc; border-radius: 4px; background: #fff; min-height: 20px;"></div>
         <div id="stripe-card-errors" role="alert" style="color: #fa755a; margin-top: 8px;"></div>
-        <input type="hidden" name="payment[stripe_payment_method_id]" id="stripe-payment-method-id" value="" />
+        <input type="hidden" name="payment[stripe_payment_intent_id]" id="stripe-payment-intent-id" value="" />
     </li>
 </ul>
+<script src="https://js.stripe.com/v3/"></script>
 <script>
 (function() {
     'use strict';
+
     var publishableKey = <?php echo json_encode($this->getPublishableKey()); ?>;
+    var createPiUrl = <?php echo json_encode($this->getCreatePaymentIntentUrl()); ?>;
+    var formKey = <?php echo json_encode($this->getFormKey()); ?>;
+
     if (!publishableKey) return;
 
     var stripe = Stripe(publishableKey);
@@ -27,6 +32,9 @@
         }
     });
 
+    var cardComplete = false;
+    var stripeProcessing = false;
+
     // Mount when payment form becomes visible
     var observer = new MutationObserver(function() {
         var container = document.getElementById('stripe-card-element');
@@ -36,22 +44,134 @@
     });
     observer.observe(document.body, { childList: true, subtree: true, attributes: true });
 
-    // Also try mounting immediately
-    var container = document.getElementById('stripe-card-element');
-    if (container && container.offsetParent !== null) {
-        cardElement.mount('#stripe-card-element');
+    // Try mounting immediately and with a delay
+    function tryMount() {
+        var el = document.getElementById('stripe-card-element');
+        if (el && !el.hasChildNodes()) {
+            try { cardElement.mount('#stripe-card-element'); } catch(e) { console.error('[stripe] mount error:', e); }
+        }
     }
+    tryMount();
+    setTimeout(tryMount, 500);
+    setTimeout(tryMount, 1500);
+    document.addEventListener('DOMContentLoaded', tryMount);
 
     cardElement.on('change', function(event) {
         var errorEl = document.getElementById('stripe-card-errors');
         errorEl.textContent = event.error ? event.error.message : '';
+        cardComplete = event.complete;
     });
 
-    // Hook into Maho's payment form submission
+    // Clear PI ID when switching away from this payment method
     if (typeof payment !== 'undefined') {
-        payment.addAfterInitFunction('stripe_card', function() {
-            // Nothing extra needed on init
-        });
+        var origSwitchMethod = payment.switchMethod;
+        payment.switchMethod = function(method) {
+            if (method !== '<?php echo $this->escapeHtml($code) ?>') {
+                document.getElementById('stripe-payment-intent-id').value = '';
+            }
+            if (origSwitchMethod) {
+                return origSwitchMethod.apply(payment, arguments);
+            }
+        };
+    }
+
+    // Monkey-patch review.save() to intercept Place Order for Stripe Elements
+    function patchReviewSave() {
+        if (typeof review === 'undefined' || !review.save) return false;
+        if (review._stripePatched) return true;
+
+        var originalSave = review.save.bind(review);
+
+        review.save = async function() {
+            // Only intercept when stripe_card is the selected payment method
+            if (typeof payment === 'undefined' || payment.currentMethod !== '<?php echo $this->escapeHtml($code) ?>') {
+                return originalSave();
+            }
+
+            // If PI ID already set (retry after error recovery), pass through
+            var piField = document.getElementById('stripe-payment-intent-id');
+            if (piField && piField.value) {
+                return originalSave();
+            }
+
+            // Validate card is complete
+            if (!cardComplete) {
+                showStripeError('Please complete your card details.');
+                return;
+            }
+
+            // Prevent double-click
+            if (stripeProcessing) return;
+            stripeProcessing = true;
+
+            var btn = document.querySelector('#review-buttons-container button');
+            var originalText = '';
+            if (btn) {
+                originalText = btn.textContent;
+                btn.textContent = 'Processing...';
+                btn.disabled = true;
+            }
+
+            try {
+                // 1. Create PaymentIntent
+                var piResponse = await fetch(createPiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'form_key=' + encodeURIComponent(formKey),
+                });
+
+                var piData = await piResponse.json();
+
+                if (piData.error) {
+                    throw new Error(piData.message || 'Could not create payment.');
+                }
+
+                // 2. Confirm card payment (handles 3DS automatically)
+                var result = await stripe.confirmCardPayment(piData.clientSecret, {
+                    payment_method: { card: cardElement }
+                });
+
+                if (result.error) {
+                    throw new Error(result.error.message || 'Payment failed.');
+                }
+
+                // 3. Inject PI ID into hidden form field
+                piField.value = result.paymentIntent.id;
+
+                // 4. Call original review.save() to create the order
+                stripeProcessing = false;
+                return originalSave();
+
+            } catch (e) {
+                showStripeError(e.message || 'An error occurred. Please try again.');
+                if (btn) {
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                }
+                stripeProcessing = false;
+            }
+        };
+
+        review._stripePatched = true;
+        return true;
+    }
+
+    function showStripeError(msg) {
+        var errorEl = document.getElementById('stripe-card-errors');
+        if (errorEl) {
+            errorEl.textContent = msg;
+        }
+    }
+
+    // Patch review.save when it becomes available (it's created after payment step)
+    if (!patchReviewSave()) {
+        var patchInterval = setInterval(function() {
+            if (patchReviewSave()) {
+                clearInterval(patchInterval);
+            }
+        }, 250);
+        // Stop trying after 30 seconds
+        setTimeout(function() { clearInterval(patchInterval); }, 30000);
     }
 })();
 </script>

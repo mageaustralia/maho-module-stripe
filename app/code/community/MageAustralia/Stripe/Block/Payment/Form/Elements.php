@@ -25,4 +25,14 @@ class MageAustralia_Stripe_Block_Payment_Form_Elements extends Mage_Payment_Bloc
     {
         return Mage::helper('stripe')->getPublishableKey();
     }
+
+    public function getCreatePaymentIntentUrl(): string
+    {
+        return Mage::getUrl('stripe_payment/payment/createPaymentIntent', ['_secure' => true]);
+    }
+
+    public function getFormKey(): string
+    {
+        return Mage::getSingleton('core/session')->getFormKey();
+    }
 }

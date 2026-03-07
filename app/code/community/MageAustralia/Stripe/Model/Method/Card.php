@@ -44,12 +44,146 @@ class MageAustralia_Stripe_Model_Method_Card extends MageAustralia_Stripe_Model_
      */
     public function getFormBlockType(): string
     {
-        $integrationMode = $this->getStripeHelper()->getStoreConfig('payment/stripe_card/integration_mode');
-
-        if ($integrationMode === 'elements') {
+        if ($this->_isElementsMode()) {
             return 'stripe/payment_form_elements';
         }
 
         return $this->_formBlockType;
+    }
+
+    /**
+     * In elements mode, no redirect — payment is confirmed client-side.
+     * In checkout mode, redirect to Stripe hosted checkout.
+     */
+    public function getOrderPlaceRedirectUrl(): string
+    {
+        if ($this->_isElementsMode()) {
+            return '';
+        }
+
+        return parent::getOrderPlaceRedirectUrl();
+    }
+
+    /**
+     * In elements mode, force authorize action so authorize() is called during order placement.
+     */
+    public function getConfigPaymentAction(): ?string
+    {
+        if ($this->_isElementsMode()) {
+            return Mage_Payment_Model_Method_Abstract::ACTION_AUTHORIZE;
+        }
+
+        return parent::getConfigPaymentAction();
+    }
+
+    /**
+     * Store the Stripe PaymentIntent ID from the form POST into additional_information.
+     */
+    public function assignData($data): static
+    {
+        parent::assignData($data);
+
+        if ($data instanceof \Maho\DataObject) {
+            $piId = $data->getData('stripe_payment_intent_id');
+        } elseif (is_array($data)) {
+            $piId = $data['stripe_payment_intent_id'] ?? null;
+        } else {
+            $piId = null;
+        }
+
+        if ($piId && str_starts_with((string)$piId, 'pi_')) {
+            $this->getInfoInstance()->setAdditionalInformation('stripe_payment_intent_id', (string)$piId);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Authorize: verify the PaymentIntent was confirmed client-side and store charge details.
+     */
+    public function authorize(\Maho\DataObject $payment, $amount): static
+    {
+        $piId = $payment->getAdditionalInformation('stripe_payment_intent_id');
+
+        if (!$piId || !str_starts_with($piId, 'pi_')) {
+            Mage::throwException(Mage::helper('stripe')->__('Invalid or missing Payment Intent ID.'));
+        }
+
+        /** @var Mage_Sales_Model_Order $order */
+        $order = $payment->getOrder();
+        $storeId = (int)$order->getStoreId();
+        $stripe = $this->getStripeHelper()->getStripeClient($storeId);
+
+        try {
+            $pi = $stripe->paymentIntents->retrieve($piId, [
+                'expand' => ['latest_charge'],
+            ]);
+        } catch (\Exception $e) {
+            $this->getStripeHelper()->addToLog('error', Mage::helper('stripe')->__('PI retrieve failed: %s', $e->getMessage()));
+            Mage::throwException(Mage::helper('stripe')->__('Could not verify payment: %s', $e->getMessage()));
+        }
+
+        // Verify the PI succeeded
+        if ($pi->status !== 'succeeded') {
+            $this->getStripeHelper()->addToLog('error', Mage::helper('stripe')->__('PI status is %s, expected succeeded', $pi->status));
+            Mage::throwException(Mage::helper('stripe')->__('Payment was not completed. Status: %s', $pi->status));
+        }
+
+        // Verify amount matches
+        $currency = strtolower($order->getOrderCurrencyCode());
+        $expectedAmount = $this->getStripeHelper()->formatAmountForStripe((float)$order->getGrandTotal(), $currency);
+
+        if ($pi->amount !== $expectedAmount || strtolower($pi->currency) !== $currency) {
+            $this->getStripeHelper()->addToLog('error', [
+                'msg' => 'Amount/currency mismatch',
+                'pi_amount' => $pi->amount,
+                'expected_amount' => $expectedAmount,
+                'pi_currency' => $pi->currency,
+                'expected_currency' => $currency,
+            ]);
+            Mage::throwException(Mage::helper('stripe')->__('Payment amount does not match the order total.'));
+        }
+
+        // Store PI ID on the order for refunds/lookups
+        $order->setStripePaymentIntentId($piId);
+
+        // Mark checkout type so webhook knows this was handled inline
+        $payment->setAdditionalInformation('checkout_type', 'elements');
+        $payment->setAdditionalInformation('payment_status', $pi->status);
+
+        // Store charge details (card, 3DS, risk)
+        $charge = $pi->latest_charge ?? null;
+        if ($charge !== null) {
+            $this->storeChargeDetails($payment, $charge);
+        }
+
+        // Set transaction
+        $payment->setTransactionId($piId);
+        $payment->setIsTransactionClosed(true);
+
+        // Send order email
+        if (!$order->getEmailSent()) {
+            try {
+                $order->sendNewOrderEmail()->setEmailSent(true);
+            } catch (\Exception $e) {
+                $order->addStatusHistoryComment(
+                    Mage::helper('stripe')->__('Unable to send order email: %s', $e->getMessage())
+                );
+            }
+        }
+
+        $this->getStripeHelper()->addToLog('authorize', [
+            'pi_id' => $piId,
+            'order' => $order->getIncrementId(),
+            'amount' => $expectedAmount,
+            'status' => $pi->status,
+        ]);
+
+        return $this;
+    }
+
+    private function _isElementsMode(): bool
+    {
+        return $this->getStripeHelper()->getStoreConfig('payment/stripe_card/integration_mode') === 'elements';
     }
 }

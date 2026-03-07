@@ -130,6 +130,45 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
     }
 
     /**
+     * Create a PaymentIntent for inline Elements checkout (no redirect)
+     *
+     * @return array{clientSecret: string, paymentIntentId: string}
+     */
+    public function createPaymentIntent(Mage_Sales_Model_Quote $quote): array
+    {
+        $storeId = (int)$quote->getStoreId();
+        $stripe = $this->getStripeHelper()->getStripeClient($storeId);
+        $currency = strtolower($quote->getQuoteCurrencyCode());
+        $amount = $this->getStripeHelper()->formatAmountForStripe((float)$quote->getGrandTotal(), $currency);
+
+        $params = [
+            'amount'               => $amount,
+            'currency'             => $currency,
+            'payment_method_types' => ['card'],
+            'metadata'             => [
+                'quote_id' => $quote->getId(),
+                'store_id' => $storeId,
+            ],
+        ];
+
+        $this->getStripeHelper()->addToLog('request', ['createPaymentIntent' => $params]);
+
+        try {
+            $pi = $stripe->paymentIntents->create($params);
+        } catch (\Exception $e) {
+            $this->getStripeHelper()->addToLog('error', Mage::helper('stripe')->__('PaymentIntent creation failed: %s', $e->getMessage()));
+            Mage::throwException(Mage::helper('stripe')->__('Unable to create payment: %s', $e->getMessage()));
+        }
+
+        $this->getStripeHelper()->addToLog('response', ['id' => $pi->id, 'status' => $pi->status]);
+
+        return [
+            'clientSecret'    => $pi->client_secret,
+            'paymentIntentId' => $pi->id,
+        ];
+    }
+
+    /**
      * Process a transaction from webhook or customer return
      *
      * @return array{success?: bool, error?: bool, status: string, order_id?: int, msg?: string, type?: string}
@@ -328,7 +367,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
     /**
      * Extract and store charge details (card, 3DS, risk) as additional information
      */
-    private function storeChargeDetails(Mage_Sales_Model_Order_Payment $payment, object $charge): void
+    protected function storeChargeDetails(Mage_Sales_Model_Order_Payment $payment, object $charge): void
     {
         // Card details
         $card = $charge->payment_method_details->card ?? null;

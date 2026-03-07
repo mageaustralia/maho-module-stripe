@@ -152,6 +152,40 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
     }
 
     /**
+     * Create a PaymentIntent for Stripe Elements inline checkout.
+     * Returns JSON with clientSecret and paymentIntentId.
+     */
+    public function createPaymentIntentAction(): void
+    {
+        if (!$this->getRequest()->isPost()) {
+            $this->_sendJson(['error' => true, 'message' => 'POST required'], 405);
+            return;
+        }
+
+        // Verify integration mode is elements
+        $integrationMode = $this->getStripeHelper()->getStoreConfig('payment/stripe_card/integration_mode');
+        if ($integrationMode !== 'elements') {
+            $this->_sendJson(['error' => true, 'message' => 'Elements mode not enabled'], 400);
+            return;
+        }
+
+        // Get quote from checkout session
+        $quote = Mage::getSingleton('checkout/session')->getQuote();
+        if (!$quote || !$quote->getId() || !$quote->getItemsCount()) {
+            $this->_sendJson(['error' => true, 'message' => 'No active cart found'], 400);
+            return;
+        }
+
+        try {
+            $result = $this->getStripeModel()->createPaymentIntent($quote);
+            $this->_sendJson($result);
+        } catch (\Exception $e) {
+            $this->getStripeHelper()->addToLog('error', $e->getMessage());
+            $this->_sendJson(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Webhook action: receives and processes Stripe webhook events
      *
      * CRITICAL: Signature verification is mandatory. Without it, anyone could
@@ -226,6 +260,16 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
                 $paymentIntent = $event->data->object;
                 $orderId = $this->getStripeModel()->getOrderIdByPaymentIntentId($paymentIntent->id);
                 if ($orderId) {
+                    // Check if this was an Elements checkout — already processed by authorize()
+                    $order = Mage::getModel('sales/order')->load($orderId);
+                    $checkoutType = $order->getPayment()->getAdditionalInformation('checkout_type');
+                    if ($checkoutType === 'elements') {
+                        $this->getStripeHelper()->addToLog('webhook', Mage::helper('stripe')->__(
+                            'Skipping PI webhook for elements order %s (already processed)',
+                            $orderId
+                        ));
+                        break;
+                    }
                     $this->getStripeModel()->processTransaction((int)$orderId, 'webhook');
                 }
                 break;
@@ -252,5 +296,13 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
                 $this->getStripeHelper()->addToLog('webhook', Mage::helper('stripe')->__('Unhandled event type: %s', $event->type));
                 break;
         }
+    }
+
+    private function _sendJson(array $data, int $httpCode = 200): void
+    {
+        $this->getResponse()
+            ->setHttpResponseCode($httpCode)
+            ->setHeader('Content-Type', 'application/json')
+            ->setBody(json_encode($data));
     }
 }
