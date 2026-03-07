@@ -120,7 +120,9 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
         $order->getPayment()->setAdditionalInformation('checkout_type', 'checkout');
 
         $status = $this->getStripeHelper()->getStatusPending($storeId);
-        $order->addStatusToHistory($status, Mage::helper('stripe')->__('Customer redirected to Stripe'), false);
+        $order->addStatusHistoryComment(Mage::helper('stripe')->__('Customer redirected to Stripe'))
+            ->setStatus($status);
+
         $order->setStripePaymentIntentId($session->payment_intent ?? $session->id);
         $order->save();
 
