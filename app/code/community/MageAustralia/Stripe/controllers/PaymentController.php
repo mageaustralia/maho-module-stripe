@@ -39,24 +39,23 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
     public const RETURN_ERR_MSG = 'An error occurred while processing your payment, please try again with another method.';
     public const RETURN_CANCEL_MSG = 'Payment cancelled, please try again.';
 
-    /**
-     * @var MageAustralia_Stripe_Helper_Data
-     */
-    public MageAustralia_Stripe_Helper_Data $stripeHelper;
+    private ?MageAustralia_Stripe_Helper_Data $_stripeHelper = null;
+    private ?MageAustralia_Stripe_Model_Stripe $_stripeModel = null;
 
-    /**
-     * @var MageAustralia_Stripe_Model_Stripe
-     */
-    public MageAustralia_Stripe_Model_Stripe $stripeModel;
-
-    /**
-     * @phpstan-ignore method.childReturnType
-     */
-    public function _construct(): void
+    public function getStripeHelper(): MageAustralia_Stripe_Helper_Data
     {
-        $this->stripeHelper = Mage::helper('stripe');
-        $this->stripeModel = Mage::getModel('stripe/stripe');
-        parent::_construct();
+        if ($this->_stripeHelper === null) {
+            $this->_stripeHelper = Mage::helper('stripe');
+        }
+        return $this->_stripeHelper;
+    }
+
+    public function getStripeModel(): MageAustralia_Stripe_Model_Stripe
+    {
+        if ($this->_stripeModel === null) {
+            $this->_stripeModel = Mage::getModel('stripe/stripe');
+        }
+        return $this->_stripeModel;
     }
 
     /**
@@ -77,11 +76,11 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
     public function redirectAction(): void
     {
         try {
-            $order = $this->stripeHelper->getOrderFromSession();
+            $order = $this->getStripeHelper()->getOrderFromSession();
 
             if (!$order) {
-                $this->stripeHelper->setError(self::REDIRECT_ERR_MSG);
-                $this->stripeHelper->addToLog('error', 'Order not found in session.');
+                $this->getStripeHelper()->setError(self::REDIRECT_ERR_MSG);
+                $this->getStripeHelper()->addToLog('error', 'Order not found in session.');
                 $this->_redirect('checkout/cart');
                 return;
             }
@@ -93,17 +92,17 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
                 $this->_redirectUrl($redirectUrl);
                 return;
             } else {
-                $this->stripeHelper->setError(self::REDIRECT_ERR_MSG);
+                $this->getStripeHelper()->setError(self::REDIRECT_ERR_MSG);
                 $error = sprintf('Missing redirect URL, increment ID: #%s', $order->getIncrementId());
-                $this->stripeHelper->addToLog('error', $error);
-                $this->stripeHelper->restoreCart();
+                $this->getStripeHelper()->addToLog('error', $error);
+                $this->getStripeHelper()->restoreCart();
                 $this->_redirect('checkout/cart');
                 return;
             }
         } catch (\Exception $e) {
-            $this->stripeHelper->setError(self::REDIRECT_ERR_MSG);
-            $this->stripeHelper->addToLog('error', $e->getMessage());
-            $this->stripeHelper->restoreCart();
+            $this->getStripeHelper()->setError(self::REDIRECT_ERR_MSG);
+            $this->getStripeHelper()->addToLog('error', $e->getMessage());
+            $this->getStripeHelper()->restoreCart();
             $this->_redirect('checkout/cart');
             return;
         }
@@ -118,8 +117,8 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
         $paymentToken = $this->getRequest()->getParam('payment_token');
 
         if ($orderId === null) {
-            $this->stripeHelper->setError(self::RETURN_ERR_MSG);
-            $this->stripeHelper->addToLog('error', 'Invalid return, missing order_id param.');
+            $this->getStripeHelper()->setError(self::RETURN_ERR_MSG);
+            $this->getStripeHelper()->addToLog('error', 'Invalid return, missing order_id param.');
             $this->_redirect('checkout/cart');
             return;
         }
@@ -127,11 +126,11 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
         $orderId = (int)$orderId;
 
         try {
-            $status = $this->stripeModel->processTransaction($orderId, 'return', $paymentToken);
+            $status = $this->getStripeModel()->processTransaction($orderId, 'return', $paymentToken);
         } catch (\Exception $e) {
-            $this->stripeHelper->setError(self::RETURN_ERR_MSG);
-            $this->stripeHelper->addToLog('error', $e->getMessage());
-            $this->stripeHelper->restoreCart();
+            $this->getStripeHelper()->setError(self::RETURN_ERR_MSG);
+            $this->getStripeHelper()->addToLog('error', $e->getMessage());
+            $this->getStripeHelper()->restoreCart();
             $this->_redirect('checkout/cart');
             return;
         }
@@ -141,12 +140,12 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
             return;
         } else {
             if (isset($status['status']) && $status['status'] === 'canceled') {
-                $this->stripeHelper->setError(self::RETURN_CANCEL_MSG);
+                $this->getStripeHelper()->setError(self::RETURN_CANCEL_MSG);
             } else {
-                $this->stripeHelper->setError(self::RETURN_ERR_MSG);
+                $this->getStripeHelper()->setError(self::RETURN_ERR_MSG);
             }
 
-            $this->stripeHelper->restoreCart();
+            $this->getStripeHelper()->restoreCart();
             $this->_redirect('checkout/cart');
             return;
         }
@@ -169,14 +168,14 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
         $sigHeader = $this->getRequest()->getServer('HTTP_STRIPE_SIGNATURE');
 
         if (empty($payload) || empty($sigHeader)) {
-            $this->stripeHelper->addToLog('webhook', 'Empty payload or missing signature header');
+            $this->getStripeHelper()->addToLog('webhook', 'Empty payload or missing signature header');
             $this->getResponse()->setHttpResponseCode(400);
             return;
         }
 
-        $webhookSecret = $this->stripeHelper->getWebhookSecret();
+        $webhookSecret = $this->getStripeHelper()->getWebhookSecret();
         if (empty($webhookSecret)) {
-            $this->stripeHelper->addToLog('error', 'Webhook secret not configured');
+            $this->getStripeHelper()->addToLog('error', 'Webhook secret not configured');
             $this->getResponse()->setHttpResponseCode(500);
             return;
         }
@@ -185,16 +184,16 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
         try {
             $event = \Stripe\Webhook::constructEvent($payload, $sigHeader, $webhookSecret);
         } catch (\UnexpectedValueException $e) {
-            $this->stripeHelper->addToLog('error', Mage::helper('stripe')->__('Webhook payload parse error: %s', $e->getMessage()));
+            $this->getStripeHelper()->addToLog('error', Mage::helper('stripe')->__('Webhook payload parse error: %s', $e->getMessage()));
             $this->getResponse()->setHttpResponseCode(400);
             return;
         } catch (\Stripe\Exception\SignatureVerificationException $e) {
-            $this->stripeHelper->addToLog('error', Mage::helper('stripe')->__('Webhook signature verification failed: %s', $e->getMessage()));
+            $this->getStripeHelper()->addToLog('error', Mage::helper('stripe')->__('Webhook signature verification failed: %s', $e->getMessage()));
             $this->getResponse()->setHttpResponseCode(400);
             return;
         }
 
-        $this->stripeHelper->addToLog('webhook', [
+        $this->getStripeHelper()->addToLog('webhook', [
             'event_type' => $event->type,
             'event_id'   => $event->id,
         ]);
@@ -203,7 +202,7 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
             $this->handleWebhookEvent($event);
             $this->getResponse()->setHttpResponseCode(200);
         } catch (\Exception $e) {
-            $this->stripeHelper->addToLog('error', $e->getMessage());
+            $this->getStripeHelper()->addToLog('error', $e->getMessage());
             Mage::logException($e);
             $this->getResponse()->setHttpResponseCode(503);
         }
@@ -219,24 +218,24 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
                 $session = $event->data->object;
                 $orderId = $session->metadata->order_id ?? null;
                 if ($orderId) {
-                    $this->stripeModel->processTransaction((int)$orderId, 'webhook');
+                    $this->getStripeModel()->processTransaction((int)$orderId, 'webhook');
                 }
                 break;
 
             case 'payment_intent.succeeded':
                 $paymentIntent = $event->data->object;
-                $orderId = $this->stripeModel->getOrderIdByPaymentIntentId($paymentIntent->id);
+                $orderId = $this->getStripeModel()->getOrderIdByPaymentIntentId($paymentIntent->id);
                 if ($orderId) {
-                    $this->stripeModel->processTransaction((int)$orderId, 'webhook');
+                    $this->getStripeModel()->processTransaction((int)$orderId, 'webhook');
                 }
                 break;
 
             case 'payment_intent.payment_failed':
                 $paymentIntent = $event->data->object;
-                $orderId = $this->stripeModel->getOrderIdByPaymentIntentId($paymentIntent->id);
+                $orderId = $this->getStripeModel()->getOrderIdByPaymentIntentId($paymentIntent->id);
                 if ($orderId) {
-                    $this->stripeHelper->addToLog('webhook', Mage::helper('stripe')->__('Payment failed for order %s', $orderId));
-                    $this->stripeModel->processTransaction((int)$orderId, 'webhook');
+                    $this->getStripeHelper()->addToLog('webhook', Mage::helper('stripe')->__('Payment failed for order %s', $orderId));
+                    $this->getStripeModel()->processTransaction((int)$orderId, 'webhook');
                 }
                 break;
 
@@ -244,13 +243,13 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
                 $session = $event->data->object;
                 $orderId = $session->metadata->order_id ?? null;
                 if ($orderId) {
-                    $this->stripeHelper->addToLog('webhook', Mage::helper('stripe')->__('Checkout session expired for order %s', $orderId));
-                    $this->stripeModel->processTransaction((int)$orderId, 'webhook');
+                    $this->getStripeHelper()->addToLog('webhook', Mage::helper('stripe')->__('Checkout session expired for order %s', $orderId));
+                    $this->getStripeModel()->processTransaction((int)$orderId, 'webhook');
                 }
                 break;
 
             default:
-                $this->stripeHelper->addToLog('webhook', Mage::helper('stripe')->__('Unhandled event type: %s', $event->type));
+                $this->getStripeHelper()->addToLog('webhook', Mage::helper('stripe')->__('Unhandled event type: %s', $event->type));
                 break;
         }
     }
