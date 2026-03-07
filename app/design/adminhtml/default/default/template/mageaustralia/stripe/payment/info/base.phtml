@@ -9,19 +9,19 @@ $checkoutType = $this->getCheckoutType();
     <table class="form-list">
         <?php if ($checkoutType): ?>
         <tr>
-            <td class="label"><?php echo $this->__('Checkout Type') ?></td>
+            <td class="label"><?php echo $this->escapeHtml($this->__('Checkout Type')) ?></td>
             <td class="value"><?php echo $this->escapeHtml(ucfirst($checkoutType)) ?></td>
         </tr>
         <?php endif; ?>
         <?php if ($piId): ?>
         <tr>
-            <td class="label"><?php echo $this->__('Payment Intent') ?></td>
+            <td class="label"><?php echo $this->escapeHtml($this->__('Payment Intent')) ?></td>
             <td class="value"><?php echo $this->escapeHtml($piId) ?></td>
         </tr>
         <?php endif; ?>
         <?php if ($status): ?>
         <tr>
-            <td class="label"><?php echo $this->__('Payment Status') ?></td>
+            <td class="label"><?php echo $this->escapeHtml($this->__('Payment Status')) ?></td>
             <td class="value"><?php echo $this->escapeHtml(ucfirst($status)) ?></td>
         </tr>
         <?php endif; ?>

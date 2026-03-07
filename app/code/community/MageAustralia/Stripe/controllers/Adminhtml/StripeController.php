@@ -90,9 +90,11 @@ class MageAustralia_Stripe_Adminhtml_StripeController extends Mage_Adminhtml_Con
             try {
                 $stripe = $helper->getStripeClient();
                 $account = $stripe->accounts->retrieve('me');
-                $results[] = '<span style="color:green;">' . Mage::helper('stripe')->__('API Key: connected to account %s (%s mode)', $account->id, $helper->getMode()) . '</span>';
+                $accountId = $this->escapeHtml($account->id);
+                $results[] = '<span style="color:green;">' . Mage::helper('stripe')->__('API Key: connected to account %s (%s mode)', $accountId, $helper->getMode()) . '</span>';
             } catch (\Exception $e) {
-                $results[] = '<span style="color:red;">' . Mage::helper('stripe')->__('API Key error: %s', $e->getMessage()) . '</span>';
+                $errorMsg = $this->escapeHtml($e->getMessage());
+                $results[] = '<span style="color:red;">' . Mage::helper('stripe')->__('API Key error: %s', $errorMsg) . '</span>';
             }
         }
 

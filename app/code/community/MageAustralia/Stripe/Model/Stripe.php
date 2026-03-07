@@ -37,7 +37,8 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
 {
     public MageAustralia_Stripe_Helper_Data $stripeHelper;
 
-    public function __construct()
+    #[\Override]
+    protected function _construct(): void
     {
         parent::_construct();
         $this->stripeHelper = Mage::helper('stripe');

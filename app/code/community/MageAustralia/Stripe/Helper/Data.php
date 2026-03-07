@@ -70,10 +70,10 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
         'stripe_link'       => 'link',
     ];
 
-    private ?bool $debug = null;
-    private ?string $mode = null;
+    private array $debug = [];
+    private array $modes = [];
     private array $secretKeys = [];
-    private ?\Stripe\StripeClient $stripeClient = null;
+    private array $stripeClients = [];
 
     /**
      * Check if the module is available for a given store
@@ -98,11 +98,12 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function getMode(?int $storeId = null): string
     {
-        if ($this->mode === null) {
-            $this->mode = (string)$this->getStoreConfig(self::XPATH_MODE, $storeId);
+        $cacheKey = (string)$storeId;
+        if (!array_key_exists($cacheKey, $this->modes)) {
+            $this->modes[$cacheKey] = (string)$this->getStoreConfig(self::XPATH_MODE, $storeId);
         }
 
-        return $this->mode ?: 'test';
+        return $this->modes[$cacheKey] ?: 'test';
     }
 
     /**
@@ -208,17 +209,18 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function getStripeClient(?int $storeId = null): \Stripe\StripeClient
     {
-        if ($this->stripeClient !== null) {
-            return $this->stripeClient;
+        $cacheKey = (string)$storeId;
+        if (array_key_exists($cacheKey, $this->stripeClients)) {
+            return $this->stripeClients[$cacheKey];
         }
 
         $secretKey = $this->getSecretKey($storeId);
 
         \Stripe\Stripe::setAppInfo('MageAustralia_Stripe', '1.0.0', 'https://mageaustralia.com.au');
 
-        $this->stripeClient = new \Stripe\StripeClient($secretKey);
+        $this->stripeClients[$cacheKey] = new \Stripe\StripeClient($secretKey);
 
-        return $this->stripeClient;
+        return $this->stripeClients[$cacheKey];
     }
 
     /**
@@ -311,11 +313,12 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function addToLog(string $type, mixed $data): void
     {
-        if ($this->debug === null) {
-            $this->debug = (bool)$this->getStoreConfig(self::XPATH_DEBUG);
+        $cacheKey = 'default';
+        if (!array_key_exists($cacheKey, $this->debug)) {
+            $this->debug[$cacheKey] = (bool)$this->getStoreConfig(self::XPATH_DEBUG);
         }
 
-        if ($this->debug) {
+        if ($this->debug[$cacheKey]) {
             if (is_array($data) || is_object($data)) {
                 $log = $type . ': ' . json_encode($data);
             } else {

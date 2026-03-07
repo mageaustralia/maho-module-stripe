@@ -14,9 +14,9 @@
             <stripe_resource>
                 <class>MageAustralia_Stripe_Model_Resource</class>
                 <entities>
-                    <transactions>
+                    <transaction>
                         <table>mageaustralia_stripe_transactions</table>
-                    </transactions>
+                    </transaction>
                 </entities>
             </stripe_resource>
         </models>
