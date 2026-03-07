@@ -1,0 +1,24 @@
+<?php /** @var MageAustralia_Stripe_Block_Payment_Redirect $this */ ?>
+<?php $redirectUrl = $this->getRedirectUrl(); ?>
+<?php if ($redirectUrl): ?>
+<div class="stripe-loading" style="text-align:center; padding:40px;">
+    <h1><?php echo $this->escapeHtml($this->__('Redirecting to Stripe')); ?></h1>
+    <div style="margin:20px 0;">
+        <p>
+            <a href="<?php echo $this->escapeUrl($redirectUrl); ?>">
+                <?php echo $this->escapeHtml($this->__('Please wait. If you are not redirected shortly, click here.')); ?>
+            </a>
+        </p>
+    </div>
+</div>
+<script>
+    window.setTimeout(function() {
+        window.location.href = <?php echo json_encode($redirectUrl); ?>;
+    }, 2000);
+</script>
+<?php else: ?>
+<div style="text-align:center; padding:40px;">
+    <p><?php echo $this->escapeHtml($this->__('Unable to redirect to payment. Please return to checkout and try again.')); ?></p>
+    <p><a href="<?php echo $this->escapeUrl(Mage::getUrl('checkout/cart')); ?>"><?php echo $this->escapeHtml($this->__('Return to Cart')); ?></a></p>
+</div>
+<?php endif; ?>

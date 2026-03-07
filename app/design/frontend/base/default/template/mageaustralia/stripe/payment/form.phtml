@@ -1,0 +1,7 @@
+<?php /** @var MageAustralia_Stripe_Block_Payment_Form $this */ ?>
+<?php $code = $this->getMethodCode(); ?>
+<ul class="form-list" id="payment_form_<?php echo $this->escapeHtml($code) ?>" style="display:none">
+    <li>
+        <p><?php echo $this->escapeHtml($this->__('You will be redirected to complete your payment.')) ?></p>
+    </li>
+</ul>

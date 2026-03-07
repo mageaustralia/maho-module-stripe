@@ -1,0 +1,19 @@
+<?php /** @var MageAustralia_Stripe_Block_Adminhtml_System_Config_Form_Apitest_Button $this */ ?>
+<script>
+function stripeApiTest() {
+    var resultEl = document.getElementById('stripe-apitest-result');
+    resultEl.innerHTML = 'Testing...';
+    resultEl.style.display = '';
+
+    var params = new URLSearchParams({
+        form_key: FORM_KEY
+    });
+
+    fetch('<?php echo $this->escapeUrl($this->getAjaxCheckUrl()) ?>?' + params.toString())
+        .then(function(response) { return response.text(); })
+        .then(function(data) { resultEl.innerHTML = data; })
+        .catch(function(error) { resultEl.innerHTML = '<span style="color:red;">Error: ' + error.message + '</span>'; });
+}
+</script>
+<?php echo $this->getButtonHtml() ?>
+<div id="stripe-apitest-result" style="display:none; margin-top:10px;"></div>

@@ -1,0 +1,5 @@
+<?php /** @var MageAustralia_Stripe_Block_Payment_Info_Base $this */ ?>
+<p><?php echo $this->escapeHtml($this->getMethod()->getTitle()) ?></p>
+<?php if ($status = $this->getPaymentStatus()): ?>
+    <p><strong><?php echo $this->escapeHtml($this->__('Status')) ?>:</strong> <?php echo $this->escapeHtml(ucfirst($status)) ?></p>
+<?php endif; ?>

@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<layout>
+    <!-- Payment info block is set via _infoBlockType on the method model -->
+</layout>

@@ -1,0 +1,21 @@
+{
+    "name": "mageaustralia/maho-module-stripe",
+    "license": "BSD-2-Clause",
+    "type": "maho-module",
+    "description": "Stripe payment gateway integration for Maho. Supports Credit Card, iDEAL, Bancontact, Klarna, PayPal, SEPA, Apple Pay, Google Pay, and more.",
+    "keywords": ["maho", "stripe", "payment", "creditcard", "ideal", "klarna", "paypal", "sepa", "apple-pay", "google-pay", "bancontact"],
+    "require": {
+        "php": ">=8.3",
+        "mahocommerce/maho": ">=24.12",
+        "stripe/stripe-php": "^16.0"
+    },
+    "authors": [
+        {
+            "name": "Mage Australia",
+            "homepage": "https://mageaustralia.com.au"
+        }
+    ],
+    "extra": {
+        "maho-module-dir": "app/code/community/MageAustralia/Stripe"
+    }
+}

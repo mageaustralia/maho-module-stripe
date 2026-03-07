@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<config>
+    <menu>
+        <stripe module="stripe">
+            <title>Stripe</title>
+            <sort_order>100</sort_order>
+            <children>
+                <settings translate="title" module="stripe">
+                    <title>Settings</title>
+                    <sort_order>10</sort_order>
+                    <action>adminhtml/system_config/edit/section/payment</action>
+                </settings>
+                <dashboard translate="title" module="stripe">
+                    <title>Stripe Dashboard <![CDATA[[&rarr;]]]></title>
+                    <sort_order>20</sort_order>
+                    <action>https://dashboard.stripe.com</action>
+                </dashboard>
+            </children>
+        </stripe>
+    </menu>
+    <acl>
+        <resources>
+            <all>
+                <title>Allow Everything</title>
+            </all>
+            <admin>
+                <children>
+                    <stripe>
+                        <children>
+                            <stripe translate="title" module="stripe">
+                                <title>Stripe Management</title>
+                            </stripe>
+                        </children>
+                    </stripe>
+                    <system>
+                        <children>
+                            <config>
+                                <children>
+                                    <stripe translate="title" module="stripe">
+                                        <title>Stripe Payment Settings</title>
+                                    </stripe>
+                                </children>
+                            </config>
+                        </children>
+                    </system>
+                </children>
+            </admin>
+        </resources>
+    </acl>
+</config>
