@@ -35,9 +35,9 @@ declare(strict_types=1);
 
 class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_Action
 {
-    const REDIRECT_ERR_MSG = 'An error occurred while processing your payment request, please try again later.';
-    const RETURN_ERR_MSG = 'An error occurred while processing your payment, please try again with another method.';
-    const RETURN_CANCEL_MSG = 'Payment cancelled, please try again.';
+    public const REDIRECT_ERR_MSG = 'An error occurred while processing your payment request, please try again later.';
+    public const RETURN_ERR_MSG = 'An error occurred while processing your payment, please try again with another method.';
+    public const RETURN_CANCEL_MSG = 'Payment cancelled, please try again.';
 
     /**
      * @var MageAustralia_Stripe_Helper_Data
