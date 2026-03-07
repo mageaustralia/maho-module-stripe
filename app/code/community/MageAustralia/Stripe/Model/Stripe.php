@@ -35,13 +35,14 @@ declare(strict_types=1);
 
 class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstract
 {
-    public MageAustralia_Stripe_Helper_Data $stripeHelper;
+    private ?MageAustralia_Stripe_Helper_Data $_stripeHelper = null;
 
-    #[\Override]
-    protected function _construct(): void
+    public function getStripeHelper(): MageAustralia_Stripe_Helper_Data
     {
-        parent::_construct();
-        $this->stripeHelper = Mage::helper('stripe');
+        if ($this->_stripeHelper === null) {
+            $this->_stripeHelper = Mage::helper('stripe');
+        }
+        return $this->_stripeHelper;
     }
 
     /**
@@ -50,17 +51,17 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
     public function startTransaction(Mage_Sales_Model_Order $order): ?string
     {
         $storeId = (int)$order->getStoreId();
-        $secretKey = $this->stripeHelper->getSecretKey($storeId);
+        $secretKey = $this->getStripeHelper()->getSecretKey($storeId);
         if (!$secretKey) {
             return null;
         }
 
-        $stripe = $this->stripeHelper->getStripeClient($storeId);
+        $stripe = $this->getStripeHelper()->getStripeClient($storeId);
         $methodCode = $order->getPayment()->getMethod();
-        $stripeType = $this->stripeHelper->getMethodStripeType($methodCode);
-        $paymentToken = $this->stripeHelper->getPaymentToken();
+        $stripeType = $this->getStripeHelper()->getMethodStripeType($methodCode);
+        $paymentToken = $this->getStripeHelper()->getPaymentToken();
         $currency = strtolower($order->getOrderCurrencyCode());
-        $amount = $this->stripeHelper->formatAmountForStripe((float)$order->getGrandTotal(), $currency);
+        $amount = $this->getStripeHelper()->formatAmountForStripe((float)$order->getGrandTotal(), $currency);
 
         // Check if order already has a checkout session
         $existingSessionId = $order->getPayment()->getAdditionalInformation('stripe_checkout_session_id');
@@ -68,11 +69,11 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
             try {
                 $existingSession = $stripe->checkout->sessions->retrieve($existingSessionId);
                 if ($existingSession->status === 'open' && !empty($existingSession->url)) {
-                    $this->stripeHelper->addToLog('info', Mage::helper('stripe')->__('Reusing existing checkout session %s', $existingSessionId));
+                    $this->getStripeHelper()->addToLog('info', Mage::helper('stripe')->__('Reusing existing checkout session %s', $existingSessionId));
                     return $existingSession->url;
                 }
             } catch (\Exception $e) {
-                $this->stripeHelper->addToLog('error', Mage::helper('stripe')->__('Could not retrieve existing session: %s', $e->getMessage()));
+                $this->getStripeHelper()->addToLog('error', Mage::helper('stripe')->__('Could not retrieve existing session: %s', $e->getMessage()));
             }
         }
 
@@ -80,7 +81,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
         $sessionParams = [
             'payment_method_types' => [$stripeType],
             'mode'                 => 'payment',
-            'success_url'          => $this->stripeHelper->getReturnUrl((int)$order->getId(), $paymentToken, $storeId),
+            'success_url'          => $this->getStripeHelper()->getReturnUrl((int)$order->getId(), $paymentToken, $storeId),
             'cancel_url'           => Mage::getUrl('checkout/cart', ['_secure' => true]),
             'client_reference_id'  => $order->getIncrementId(),
             'customer_email'       => $order->getCustomerEmail(),
@@ -101,24 +102,24 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
             ]],
         ];
 
-        $this->stripeHelper->addToLog('request', $sessionParams);
+        $this->getStripeHelper()->addToLog('request', $sessionParams);
 
         try {
             $session = $stripe->checkout->sessions->create($sessionParams);
         } catch (\Exception $e) {
-            $this->stripeHelper->addToLog('error', Mage::helper('stripe')->__('Stripe session creation failed: %s', $e->getMessage()));
+            $this->getStripeHelper()->addToLog('error', Mage::helper('stripe')->__('Stripe session creation failed: %s', $e->getMessage()));
             Mage::throwException(Mage::helper('stripe')->__('Unable to create Stripe payment session: %s', $e->getMessage()));
             return null;
         }
 
-        $this->stripeHelper->addToLog('response', ['id' => $session->id, 'url' => $session->url]);
+        $this->getStripeHelper()->addToLog('response', ['id' => $session->id, 'url' => $session->url]);
 
         // Store IDs on payment
         $order->getPayment()->setAdditionalInformation('stripe_checkout_session_id', $session->id);
         $order->getPayment()->setAdditionalInformation('stripe_payment_token', $paymentToken);
         $order->getPayment()->setAdditionalInformation('checkout_type', 'checkout');
 
-        $status = $this->stripeHelper->getStatusPending($storeId);
+        $status = $this->getStripeHelper()->getStatusPending($storeId);
         $order->addStatusToHistory($status, Mage::helper('stripe')->__('Customer redirected to Stripe'), false);
         $order->setStripePaymentIntentId($session->payment_intent ?? $session->id);
         $order->save();
@@ -137,28 +138,28 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
         $order = Mage::getModel('sales/order')->load($orderId);
         if (empty($order) || !$order->getId()) {
             $msg = ['error' => true, 'msg' => 'Order not found'];
-            $this->stripeHelper->addToLog('error', $msg);
+            $this->getStripeHelper()->addToLog('error', $msg);
             return $msg;
         }
 
         $storeId = (int)$order->getStoreId();
-        $stripe = $this->stripeHelper->getStripeClient($storeId);
+        $stripe = $this->getStripeHelper()->getStripeClient($storeId);
         $sessionId = $order->getPayment()->getAdditionalInformation('stripe_checkout_session_id');
 
         if (empty($sessionId)) {
             $msg = ['error' => true, 'msg' => 'Checkout session ID not found'];
-            $this->stripeHelper->addToLog('error', $msg);
+            $this->getStripeHelper()->addToLog('error', $msg);
             return $msg;
         }
 
         try {
             $session = $stripe->checkout->sessions->retrieve($sessionId, ['expand' => ['payment_intent']]);
         } catch (\Exception $e) {
-            $this->stripeHelper->addToLog('error', Mage::helper('stripe')->__('Failed to retrieve checkout session: %s', $e->getMessage()));
+            $this->getStripeHelper()->addToLog('error', Mage::helper('stripe')->__('Failed to retrieve checkout session: %s', $e->getMessage()));
             return ['error' => true, 'msg' => $e->getMessage()];
         }
 
-        $this->stripeHelper->addToLog($type, [
+        $this->getStripeHelper()->addToLog($type, [
             'session_id'     => $session->id,
             'status'         => $session->status,
             'payment_status' => $session->payment_status,
@@ -168,7 +169,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
         if ($type !== 'webhook' && $paymentToken !== null) {
             $storedToken = $order->getPayment()->getAdditionalInformation('stripe_payment_token');
             if ($paymentToken !== $storedToken) {
-                $this->stripeHelper->addToLog('error', 'Payment token mismatch');
+                $this->getStripeHelper()->addToLog('error', 'Payment token mismatch');
                 return ['success' => false, 'status' => 'token_mismatch', 'order_id' => $orderId];
             }
         }
@@ -213,7 +214,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
                     }
                 }
 
-                $statusProcessing = $this->stripeHelper->getStatusProcessing($storeId);
+                $statusProcessing = $this->getStripeHelper()->getStatusProcessing($storeId);
                 if ($statusProcessing && $statusProcessing !== $order->getStatus()) {
                     $order->setStatus($statusProcessing);
                 }
@@ -266,27 +267,27 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
         $piId = $order->getStripePaymentIntentId();
 
         if (empty($piId)) {
-            $this->stripeHelper->addToLog('error', 'Cannot refund: Payment Intent ID not found');
+            $this->getStripeHelper()->addToLog('error', 'Cannot refund: Payment Intent ID not found');
             Mage::throwException(Mage::helper('stripe')->__('Cannot refund: Payment Intent ID not found'));
             return $this;
         }
 
-        $stripe = $this->stripeHelper->getStripeClient($storeId);
+        $stripe = $this->getStripeHelper()->getStripeClient($storeId);
         $currency = strtolower($order->getOrderCurrencyCode());
-        $amountInCents = $this->stripeHelper->formatAmountForStripe((float)$amount, $currency);
+        $amountInCents = $this->getStripeHelper()->formatAmountForStripe((float)$amount, $currency);
 
         try {
             $refund = $stripe->refunds->create([
                 'payment_intent' => $piId,
                 'amount'         => $amountInCents,
             ]);
-            $this->stripeHelper->addToLog('refund', [
+            $this->getStripeHelper()->addToLog('refund', [
                 'id'     => $refund->id,
                 'status' => $refund->status,
                 'amount' => $amountInCents,
             ]);
         } catch (\Exception $e) {
-            $this->stripeHelper->addToLog('error', $e->getMessage());
+            $this->getStripeHelper()->addToLog('error', $e->getMessage());
             Mage::throwException(Mage::helper('stripe')->__('Stripe refund error: %s', $e->getMessage()));
         }
 
@@ -307,7 +308,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
             return (int)$orderId;
         }
 
-        $this->stripeHelper->addToLog(
+        $this->getStripeHelper()->addToLog(
             'error',
             Mage::helper('stripe')->__('No order found for payment intent ID %s', $paymentIntentId)
         );
@@ -337,7 +338,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
     {
         if ($order->getId() && $order->getState() !== Mage_Sales_Model_Order::STATE_CANCELED) {
             $comment = Mage::helper('stripe')->__('The order was canceled, reason: payment %s', $status);
-            $this->stripeHelper->addToLog('info', $order->getIncrementId() . ' ' . $comment);
+            $this->getStripeHelper()->addToLog('info', $order->getIncrementId() . ' ' . $comment);
             $order->cancel();
             $order->addStatusHistoryComment($comment);
             $order->save();
@@ -350,7 +351,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
     private function uncancelOrder(Mage_Sales_Model_Order $order): Mage_Sales_Model_Order
     {
         try {
-            $status = $this->stripeHelper->getStatusPending((int)$order->getStoreId());
+            $status = $this->getStripeHelper()->getStatusPending((int)$order->getStoreId());
             $message = Mage::helper('stripe')->__('Order uncanceled by webhook.');
             $state = Mage_Sales_Model_Order::STATE_NEW;
             $order->setState($state, $status, $message, false)->save();
@@ -359,7 +360,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
                 $item->setQtyCanceled(0)->save();
             }
         } catch (\Exception $e) {
-            $this->stripeHelper->addToLog('error', $e->getMessage());
+            $this->getStripeHelper()->addToLog('error', $e->getMessage());
         }
 
         return $order;

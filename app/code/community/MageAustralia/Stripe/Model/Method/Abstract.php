@@ -62,7 +62,7 @@ class MageAustralia_Stripe_Model_Method_Abstract extends MageAustralia_Stripe_Mo
      */
     public function isAvailable($quote = null): bool
     {
-        if (!$this->stripeHelper->isAvailable($quote ? (int)$quote->getStoreId() : null)) {
+        if (!$this->getStripeHelper()->isAvailable($quote ? (int)$quote->getStoreId() : null)) {
             return false;
         }
 
