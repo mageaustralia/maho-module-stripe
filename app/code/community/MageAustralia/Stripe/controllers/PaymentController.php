@@ -75,30 +75,18 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
      */
     public function redirectAction(): void
     {
-        $logFile = Mage::getBaseDir('var') . '/log/stripe.log';
-        file_put_contents($logFile, date('Y-m-d H:i:s') . " redirectAction() called\n", FILE_APPEND);
-
         try {
             $order = $this->getStripeHelper()->getOrderFromSession();
 
             if (!$order) {
-                file_put_contents($logFile, date('Y-m-d H:i:s') . " Order not found in session\n", FILE_APPEND);
                 $this->getStripeHelper()->setError(self::REDIRECT_ERR_MSG);
+                $this->getStripeHelper()->addToLog('error', 'Order not found in session.');
                 $this->_redirect('checkout/cart');
                 return;
             }
 
-            file_put_contents($logFile, date('Y-m-d H:i:s') . " Order found #" . $order->getIncrementId() . "\n", FILE_APPEND);
-            file_put_contents($logFile, date('Y-m-d H:i:s') . " Payment method: " . $order->getPayment()->getMethod() . "\n", FILE_APPEND);
-
-            $secretKey = $this->getStripeHelper()->getSecretKey((int)$order->getStoreId());
-            file_put_contents($logFile, date('Y-m-d H:i:s') . " Secret key empty? " . (empty($secretKey) ? 'YES' : 'NO, starts with: ' . substr($secretKey, 0, 12)) . "\n", FILE_APPEND);
-
             $methodInstance = $order->getPayment()->getMethodInstance();
-            file_put_contents($logFile, date('Y-m-d H:i:s') . " Method class: " . get_class($methodInstance) . "\n", FILE_APPEND);
-
             $redirectUrl = $methodInstance->startTransaction($order);
-            file_put_contents($logFile, date('Y-m-d H:i:s') . " Redirect URL: " . ($redirectUrl ?? 'NULL') . "\n", FILE_APPEND);
 
             if ($redirectUrl) {
                 $this->_redirectUrl($redirectUrl);
@@ -106,15 +94,14 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
             } else {
                 $this->getStripeHelper()->setError(self::REDIRECT_ERR_MSG);
                 $error = sprintf('Missing redirect URL, increment ID: #%s', $order->getIncrementId());
-                file_put_contents($logFile, date('Y-m-d H:i:s') . " " . $error . "\n", FILE_APPEND);
+                $this->getStripeHelper()->addToLog('error', $error);
                 $this->getStripeHelper()->restoreCart();
                 $this->_redirect('checkout/cart');
                 return;
             }
         } catch (\Exception $e) {
-            file_put_contents($logFile, date('Y-m-d H:i:s') . " EXCEPTION: " . $e->getMessage() . "\n", FILE_APPEND);
-            file_put_contents($logFile, date('Y-m-d H:i:s') . " TRACE: " . $e->getTraceAsString() . "\n", FILE_APPEND);
             $this->getStripeHelper()->setError(self::REDIRECT_ERR_MSG);
+            $this->getStripeHelper()->addToLog('error', $e->getMessage());
             $this->getStripeHelper()->restoreCart();
             $this->_redirect('checkout/cart');
             return;

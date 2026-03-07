@@ -2,7 +2,18 @@
 /** @var MageAustralia_Stripe_Block_Payment_Info_Base $this */
 $status = $this->getPaymentStatus();
 $piId = $this->getPaymentIntentId();
+$chargeId = $this->getStripeChargeId();
 $checkoutType = $this->getCheckoutType();
+$cardBrand = $this->getCardBrand();
+$cardLast4 = $this->getCardLast4();
+$cardExp = $this->getCardExp();
+$cardFunding = $this->getCardFunding();
+$cardCountry = $this->getCardCountry();
+$threeDResult = $this->getThreeDSecureResult();
+$threeDVersion = $this->getThreeDSecureVersion();
+$riskLevel = $this->getRiskLevel();
+$riskScore = $this->getRiskScore();
+$sellerMessage = $this->getSellerMessage();
 ?>
 <div class="stripe-payment-info">
     <p><?php echo $this->escapeHtml($this->getMethod()->getTitle()) ?></p>
@@ -19,10 +30,72 @@ $checkoutType = $this->getCheckoutType();
             <td class="value"><?php echo $this->escapeHtml($piId) ?></td>
         </tr>
         <?php endif; ?>
+        <?php if ($chargeId): ?>
+        <tr>
+            <td class="label"><?php echo $this->escapeHtml($this->__('Charge ID')) ?></td>
+            <td class="value"><?php echo $this->escapeHtml($chargeId) ?></td>
+        </tr>
+        <?php endif; ?>
         <?php if ($status): ?>
         <tr>
             <td class="label"><?php echo $this->escapeHtml($this->__('Payment Status')) ?></td>
             <td class="value"><?php echo $this->escapeHtml(ucfirst($status)) ?></td>
+        </tr>
+        <?php endif; ?>
+
+        <?php if ($cardBrand || $cardLast4): ?>
+        <tr><td colspan="2"><strong><?php echo $this->escapeHtml($this->__('Card Details')) ?></strong></td></tr>
+        <?php endif; ?>
+        <?php if ($cardBrand): ?>
+        <tr>
+            <td class="label"><?php echo $this->escapeHtml($this->__('Card Brand')) ?></td>
+            <td class="value"><?php echo $this->escapeHtml(ucfirst($cardBrand)) ?></td>
+        </tr>
+        <?php endif; ?>
+        <?php if ($cardLast4): ?>
+        <tr>
+            <td class="label"><?php echo $this->escapeHtml($this->__('Card Number')) ?></td>
+            <td class="value">&bull;&bull;&bull;&bull; <?php echo $this->escapeHtml($cardLast4) ?></td>
+        </tr>
+        <?php endif; ?>
+        <?php if ($cardExp): ?>
+        <tr>
+            <td class="label"><?php echo $this->escapeHtml($this->__('Expiry')) ?></td>
+            <td class="value"><?php echo $this->escapeHtml($cardExp) ?></td>
+        </tr>
+        <?php endif; ?>
+        <?php if ($cardFunding): ?>
+        <tr>
+            <td class="label"><?php echo $this->escapeHtml($this->__('Funding')) ?></td>
+            <td class="value"><?php echo $this->escapeHtml(ucfirst($cardFunding)) ?></td>
+        </tr>
+        <?php endif; ?>
+        <?php if ($cardCountry): ?>
+        <tr>
+            <td class="label"><?php echo $this->escapeHtml($this->__('Card Country')) ?></td>
+            <td class="value"><?php echo $this->escapeHtml($cardCountry) ?></td>
+        </tr>
+        <?php endif; ?>
+
+        <?php if ($threeDResult || $riskLevel): ?>
+        <tr><td colspan="2"><strong><?php echo $this->escapeHtml($this->__('Security & Risk')) ?></strong></td></tr>
+        <?php endif; ?>
+        <?php if ($threeDResult): ?>
+        <tr>
+            <td class="label"><?php echo $this->escapeHtml($this->__('3D Secure')) ?></td>
+            <td class="value"><?php echo $this->escapeHtml(ucfirst($threeDResult)) ?><?php if ($threeDVersion): ?> (v<?php echo $this->escapeHtml($threeDVersion) ?>)<?php endif; ?></td>
+        </tr>
+        <?php endif; ?>
+        <?php if ($riskLevel): ?>
+        <tr>
+            <td class="label"><?php echo $this->escapeHtml($this->__('Risk Level')) ?></td>
+            <td class="value"><?php echo $this->escapeHtml(ucfirst($riskLevel)) ?><?php if ($riskScore !== null): ?> (<?php echo $this->escapeHtml((string)$riskScore) ?>)<?php endif; ?></td>
+        </tr>
+        <?php endif; ?>
+        <?php if ($sellerMessage): ?>
+        <tr>
+            <td class="label"><?php echo $this->escapeHtml($this->__('Result')) ?></td>
+            <td class="value"><?php echo $this->escapeHtml($sellerMessage) ?></td>
         </tr>
         <?php endif; ?>
     </table>

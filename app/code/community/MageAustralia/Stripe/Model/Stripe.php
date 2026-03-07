@@ -155,7 +155,9 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
         }
 
         try {
-            $session = $stripe->checkout->sessions->retrieve($sessionId, ['expand' => ['payment_intent']]);
+            $session = $stripe->checkout->sessions->retrieve($sessionId, [
+                'expand' => ['payment_intent', 'payment_intent.latest_charge'],
+            ]);
         } catch (\Exception $e) {
             $this->getStripeHelper()->addToLog('error', Mage::helper('stripe')->__('Failed to retrieve checkout session: %s', $e->getMessage()));
             return ['error' => true, 'msg' => $e->getMessage()];
@@ -189,6 +191,12 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
                     'stripe_payment_method',
                     $session->payment_intent->payment_method
                 );
+            }
+
+            // Extract charge details (card info, 3DS, risk)
+            $charge = $session->payment_intent->latest_charge ?? null;
+            if ($charge !== null) {
+                $this->storeChargeDetails($order->getPayment(), $charge);
             }
         }
 
@@ -315,6 +323,42 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
             Mage::helper('stripe')->__('No order found for payment intent ID %s', $paymentIntentId)
         );
         return false;
+    }
+
+    /**
+     * Extract and store charge details (card, 3DS, risk) as additional information
+     */
+    private function storeChargeDetails(Mage_Sales_Model_Order_Payment $payment, object $charge): void
+    {
+        // Card details
+        $card = $charge->payment_method_details->card ?? null;
+        if ($card !== null) {
+            $payment->setAdditionalInformation('card_brand', $card->brand ?? null);
+            $payment->setAdditionalInformation('card_last4', $card->last4 ?? null);
+            $payment->setAdditionalInformation('card_exp', ($card->exp_month ?? '') . '/' . ($card->exp_year ?? ''));
+            $payment->setAdditionalInformation('card_funding', $card->funding ?? null);
+            $payment->setAdditionalInformation('card_country', $card->country ?? null);
+
+            // 3D Secure / authentication
+            $threeDSecure = $card->three_d_secure ?? null;
+            if ($threeDSecure !== null) {
+                $payment->setAdditionalInformation('three_d_secure_authenticated', $threeDSecure->authenticated ?? null);
+                $payment->setAdditionalInformation('three_d_secure_result', $threeDSecure->result ?? null);
+                $payment->setAdditionalInformation('three_d_secure_version', $threeDSecure->version ?? null);
+            }
+        }
+
+        // Outcome / risk
+        $outcome = $charge->outcome ?? null;
+        if ($outcome !== null) {
+            $payment->setAdditionalInformation('risk_level', $outcome->risk_level ?? null);
+            $payment->setAdditionalInformation('risk_score', $outcome->risk_score ?? null);
+            $payment->setAdditionalInformation('seller_message', $outcome->seller_message ?? null);
+            $payment->setAdditionalInformation('network_status', $outcome->network_status ?? null);
+        }
+
+        // Charge ID for reference
+        $payment->setAdditionalInformation('stripe_charge_id', $charge->id ?? null);
     }
 
     /**
