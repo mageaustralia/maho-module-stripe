@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /**
@@ -91,8 +92,8 @@ class MageAustralia_Stripe_Model_Method_Card extends MageAustralia_Stripe_Model_
             $piId = null;
         }
 
-        if ($piId && str_starts_with((string)$piId, 'pi_')) {
-            $this->getInfoInstance()->setAdditionalInformation('stripe_payment_intent_id', (string)$piId);
+        if ($piId && str_starts_with((string) $piId, 'pi_')) {
+            $this->getInfoInstance()->setAdditionalInformation('stripe_payment_intent_id', (string) $piId);
         }
 
         return $this;
@@ -111,7 +112,7 @@ class MageAustralia_Stripe_Model_Method_Card extends MageAustralia_Stripe_Model_
 
         /** @var Mage_Sales_Model_Order $order */
         $order = $payment->getOrder();
-        $storeId = (int)$order->getStoreId();
+        $storeId = (int) $order->getStoreId();
         $stripe = $this->getStripeHelper()->getStripeClient($storeId);
 
         try {
@@ -131,7 +132,7 @@ class MageAustralia_Stripe_Model_Method_Card extends MageAustralia_Stripe_Model_
 
         // Verify amount matches
         $currency = strtolower($order->getOrderCurrencyCode());
-        $expectedAmount = $this->getStripeHelper()->formatAmountForStripe((float)$order->getGrandTotal(), $currency);
+        $expectedAmount = $this->getStripeHelper()->formatAmountForStripe((float) $order->getGrandTotal(), $currency);
 
         if ($pi->amount !== $expectedAmount || strtolower($pi->currency) !== $currency) {
             $this->getStripeHelper()->addToLog('error', [
@@ -167,7 +168,7 @@ class MageAustralia_Stripe_Model_Method_Card extends MageAustralia_Stripe_Model_
                 $order->sendNewOrderEmail()->setEmailSent(true);
             } catch (\Exception $e) {
                 $order->addStatusHistoryComment(
-                    Mage::helper('stripe')->__('Unable to send order email: %s', $e->getMessage())
+                    Mage::helper('stripe')->__('Unable to send order email: %s', $e->getMessage()),
                 );
             }
         }

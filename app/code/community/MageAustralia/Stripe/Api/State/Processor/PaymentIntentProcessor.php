@@ -67,7 +67,7 @@ class PaymentIntentProcessor implements ProcessorInterface
             $read->select()
                 ->from($quoteTable, ['entity_id'])
                 ->where('masked_quote_id = ?', $maskedId)
-                ->where('is_active = ?', 1)
+                ->where('is_active = ?', 1),
         );
 
         if (!$quoteId) {
