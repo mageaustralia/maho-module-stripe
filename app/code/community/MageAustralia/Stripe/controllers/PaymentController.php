@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /**
@@ -75,8 +76,9 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
      */
     public function redirectAction(): void
     {
+        $order = null;
         try {
-            $order = $this->getStripeHelper()->getOrderFromSession();
+            $order = $this->_loadOrderFromRequest() ?? $this->getStripeHelper()->getOrderFromSession();
 
             if (!$order) {
                 $this->getStripeHelper()->setError(self::REDIRECT_ERR_MSG);
@@ -95,16 +97,12 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
                 $this->getStripeHelper()->setError(self::REDIRECT_ERR_MSG);
                 $error = sprintf('Missing redirect URL, increment ID: #%s', $order->getIncrementId());
                 $this->getStripeHelper()->addToLog('error', $error);
-                $this->getStripeHelper()->restoreCart();
-                $this->_redirect('checkout/cart');
+                $this->_restoreAndRedirect($order);
                 return;
             }
         } catch (\Exception $e) {
-            $this->getStripeHelper()->setError(self::REDIRECT_ERR_MSG);
             $this->getStripeHelper()->addToLog('error', $e->getMessage());
-            $this->getStripeHelper()->restoreCart();
-            $this->_redirect('checkout/cart');
-            return;
+            $this->_restoreAndRedirect($order, $e->getMessage());
         }
     }
 
@@ -123,7 +121,7 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
             return;
         }
 
-        $orderId = (int)$orderId;
+        $orderId = (int) $orderId;
 
         try {
             $status = $this->getStripeModel()->processTransaction($orderId, 'return', $paymentToken);
@@ -252,7 +250,7 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
                 $session = $event->data->object;
                 $orderId = $session->metadata->order_id ?? null;
                 if ($orderId) {
-                    $this->getStripeModel()->processTransaction((int)$orderId, 'webhook');
+                    $this->getStripeModel()->processTransaction((int) $orderId, 'webhook');
                 }
                 break;
 
@@ -266,11 +264,11 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
                     if ($checkoutType === 'elements') {
                         $this->getStripeHelper()->addToLog('webhook', Mage::helper('stripe')->__(
                             'Skipping PI webhook for elements order %s (already processed)',
-                            $orderId
+                            $orderId,
                         ));
                         break;
                     }
-                    $this->getStripeModel()->processTransaction((int)$orderId, 'webhook');
+                    $this->getStripeModel()->processTransaction((int) $orderId, 'webhook');
                 }
                 break;
 
@@ -279,7 +277,7 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
                 $orderId = $this->getStripeModel()->getOrderIdByPaymentIntentId($paymentIntent->id);
                 if ($orderId) {
                     $this->getStripeHelper()->addToLog('webhook', Mage::helper('stripe')->__('Payment failed for order %s', $orderId));
-                    $this->getStripeModel()->processTransaction((int)$orderId, 'webhook');
+                    $this->getStripeModel()->processTransaction((int) $orderId, 'webhook');
                 }
                 break;
 
@@ -288,7 +286,7 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
                 $orderId = $session->metadata->order_id ?? null;
                 if ($orderId) {
                     $this->getStripeHelper()->addToLog('webhook', Mage::helper('stripe')->__('Checkout session expired for order %s', $orderId));
-                    $this->getStripeModel()->processTransaction((int)$orderId, 'webhook');
+                    $this->getStripeModel()->processTransaction((int) $orderId, 'webhook');
                 }
                 break;
 
@@ -296,6 +294,71 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
                 $this->getStripeHelper()->addToLog('webhook', Mage::helper('stripe')->__('Unhandled event type: %s', $event->type));
                 break;
         }
+    }
+
+    /**
+     * Restore the cart and redirect back — either to storefront or Maho cart.
+     * For storefront orders, reactivates the quote directly (not via session).
+     */
+    private function _restoreAndRedirect(?Mage_Sales_Model_Order $order, ?string $errorMessage = null): void
+    {
+        // Reactivate the quote so the cart works again
+        if ($order && $order->getQuoteId()) {
+            $quote = Mage::getModel('sales/quote')->load($order->getQuoteId());
+            if ($quote->getId()) {
+                $quote->setIsActive(1)->save();
+            }
+        }
+
+        // Cancel the failed order so inventory is released
+        if ($order && $order->getId() && $order->canCancel()) {
+            try {
+                $order->cancel()->save();
+            } catch (\Exception $e) {
+                $this->getStripeHelper()->addToLog('error', 'Failed to cancel order: ' . $e->getMessage());
+            }
+        }
+
+        $storefrontOrigin = $order ? $order->getData('storefront_origin') : null;
+        if ($storefrontOrigin) {
+            $url = rtrim($storefrontOrigin, '/') . '/checkout';
+            if ($errorMessage) {
+                $url .= '?error=' . urlencode($errorMessage);
+            }
+            $this->_redirectUrl($url);
+            return;
+        }
+
+        $this->getStripeHelper()->restoreCart();
+        $this->getStripeHelper()->setError($errorMessage ?: self::REDIRECT_ERR_MSG);
+        $this->_redirect('checkout/cart');
+    }
+
+    /**
+     * Load order from request params (for headless storefront redirect flow).
+     */
+    private function _loadOrderFromRequest(): ?Mage_Sales_Model_Order
+    {
+        $orderId = $this->getRequest()->getParam('order_id');
+        $sft = $this->getRequest()->getParam('sft');
+
+        if (!$orderId || !$sft) {
+            return null;
+        }
+
+        $order = Mage::getModel('sales/order')->load((int) $orderId);
+        if (!$order->getId()) {
+            return null;
+        }
+
+        $storedToken = $order->getData('storefront_order_token');
+        if (!$storedToken || !hash_equals($storedToken, $sft)) {
+            $this->getStripeHelper()->addToLog('error', 'Storefront token mismatch for order ' . $orderId);
+            return null;
+        }
+
+        $this->getStripeHelper()->addToLog('info', 'Loaded order ' . $order->getIncrementId() . ' from storefront redirect params');
+        return $order;
     }
 
     private function _sendJson(array $data, int $httpCode = 200): void

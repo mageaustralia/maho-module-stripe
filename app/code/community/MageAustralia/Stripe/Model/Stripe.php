@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /**
@@ -50,7 +51,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
      */
     public function startTransaction(Mage_Sales_Model_Order $order): ?string
     {
-        $storeId = (int)$order->getStoreId();
+        $storeId = (int) $order->getStoreId();
         $secretKey = $this->getStripeHelper()->getSecretKey($storeId);
         if (!$secretKey) {
             return null;
@@ -61,7 +62,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
         $stripeType = $this->getStripeHelper()->getMethodStripeType($methodCode);
         $paymentToken = $this->getStripeHelper()->getPaymentToken();
         $currency = strtolower($order->getOrderCurrencyCode());
-        $amount = $this->getStripeHelper()->formatAmountForStripe((float)$order->getGrandTotal(), $currency);
+        $amount = $this->getStripeHelper()->formatAmountForStripe((float) $order->getGrandTotal(), $currency);
 
         // Check if order already has a checkout session
         $existingSessionId = $order->getPayment()->getAdditionalInformation('stripe_checkout_session_id');
@@ -77,12 +78,18 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
             }
         }
 
+        // Determine cancel URL — redirect storefront orders back to their origin
+        $storefrontOrigin = $order->getData('storefront_origin');
+        $cancelUrl = $storefrontOrigin
+            ? rtrim($storefrontOrigin, '/') . '/checkout'
+            : Mage::getUrl('checkout/cart', ['_secure' => true]);
+
         // Create Checkout Session
         $sessionParams = [
             'payment_method_types' => [$stripeType],
             'mode'                 => 'payment',
-            'success_url'          => $this->getStripeHelper()->getReturnUrl((int)$order->getId(), $paymentToken, $storeId),
-            'cancel_url'           => Mage::getUrl('checkout/cart', ['_secure' => true]),
+            'success_url'          => $this->getStripeHelper()->getReturnUrl((int) $order->getId(), $paymentToken, $storeId),
+            'cancel_url'           => $cancelUrl,
             'client_reference_id'  => $order->getIncrementId(),
             'customer_email'       => $order->getCustomerEmail(),
             'metadata'             => [
@@ -136,10 +143,10 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
      */
     public function createPaymentIntent(Mage_Sales_Model_Quote $quote): array
     {
-        $storeId = (int)$quote->getStoreId();
+        $storeId = (int) $quote->getStoreId();
         $stripe = $this->getStripeHelper()->getStripeClient($storeId);
         $currency = strtolower($quote->getQuoteCurrencyCode());
-        $amount = $this->getStripeHelper()->formatAmountForStripe((float)$quote->getGrandTotal(), $currency);
+        $amount = $this->getStripeHelper()->formatAmountForStripe((float) $quote->getGrandTotal(), $currency);
 
         $params = [
             'amount'               => $amount,
@@ -183,7 +190,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
             return $msg;
         }
 
-        $storeId = (int)$order->getStoreId();
+        $storeId = (int) $order->getStoreId();
         $stripe = $this->getStripeHelper()->getStripeClient($storeId);
         $sessionId = $order->getPayment()->getAdditionalInformation('stripe_checkout_session_id');
 
@@ -228,7 +235,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
             if (isset($session->payment_intent->payment_method)) {
                 $order->getPayment()->setAdditionalInformation(
                     'stripe_payment_method',
-                    $session->payment_intent->payment_method
+                    $session->payment_intent->payment_method,
                 );
             }
 
@@ -258,7 +265,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
                         $order->sendNewOrderEmail()->setEmailSent(true);
                     } catch (\Exception $e) {
                         $order->addStatusHistoryComment(
-                            Mage::helper('stripe')->__('Unable to send order email: %s', $e->getMessage())
+                            Mage::helper('stripe')->__('Unable to send order email: %s', $e->getMessage()),
                         );
                     }
                 }
@@ -275,7 +282,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
                         $invoice->setEmailSent(true)->sendEmail()->save();
                     } catch (\Exception $e) {
                         $order->addStatusHistoryComment(
-                            Mage::helper('stripe')->__('Unable to send invoice email: %s', $e->getMessage())
+                            Mage::helper('stripe')->__('Unable to send invoice email: %s', $e->getMessage()),
                         );
                     }
                 }
@@ -312,7 +319,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
     {
         /** @var Mage_Sales_Model_Order $order */
         $order = $payment->getOrder();
-        $storeId = (int)$order->getStoreId();
+        $storeId = (int) $order->getStoreId();
         $piId = $order->getStripePaymentIntentId();
 
         if (empty($piId)) {
@@ -323,7 +330,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
 
         $stripe = $this->getStripeHelper()->getStripeClient($storeId);
         $currency = strtolower($order->getOrderCurrencyCode());
-        $amountInCents = $this->getStripeHelper()->formatAmountForStripe((float)$amount, $currency);
+        $amountInCents = $this->getStripeHelper()->formatAmountForStripe((float) $amount, $currency);
 
         try {
             $refund = $stripe->refunds->create([
@@ -354,12 +361,12 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
             ->getId();
 
         if ($orderId) {
-            return (int)$orderId;
+            return (int) $orderId;
         }
 
         $this->getStripeHelper()->addToLog(
             'error',
-            Mage::helper('stripe')->__('No order found for payment intent ID %s', $paymentIntentId)
+            Mage::helper('stripe')->__('No order found for payment intent ID %s', $paymentIntentId),
         );
         return false;
     }
@@ -436,7 +443,7 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
     private function uncancelOrder(Mage_Sales_Model_Order $order): Mage_Sales_Model_Order
     {
         try {
-            $status = $this->getStripeHelper()->getStatusPending((int)$order->getStoreId());
+            $status = $this->getStripeHelper()->getStatusPending((int) $order->getStoreId());
             $message = Mage::helper('stripe')->__('Order uncanceled by webhook.');
             $state = Mage_Sales_Model_Order::STATE_NEW;
             $order->setState($state, $status, $message, false)->save();
