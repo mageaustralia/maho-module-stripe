@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /**
@@ -28,14 +29,14 @@ $connection->addColumn(
         'nullable' => true,
         'default'  => null,
         'comment'  => 'Stripe Payment Intent ID',
-    ]
+    ],
 );
 
 // Add index for lookup by payment intent ID
 $connection->addIndex(
     $installer->getTable('sales/order'),
     $installer->getIdxName('sales/order', ['stripe_payment_intent_id']),
-    ['stripe_payment_intent_id']
+    ['stripe_payment_intent_id'],
 );
 
 // Create mageaustralia_stripe_transactions table
@@ -54,7 +55,7 @@ if (!$connection->isTableExists($tableName)) {
                 'nullable' => false,
                 'primary'  => true,
             ],
-            'Entity ID'
+            'Entity ID',
         )
         ->addColumn(
             'order_id',
@@ -64,7 +65,7 @@ if (!$connection->isTableExists($tableName)) {
                 'unsigned' => true,
                 'nullable' => false,
             ],
-            'Order ID'
+            'Order ID',
         )
         ->addColumn(
             'payment_intent_id',
@@ -73,7 +74,7 @@ if (!$connection->isTableExists($tableName)) {
             [
                 'nullable' => false,
             ],
-            'Stripe Payment Intent ID'
+            'Stripe Payment Intent ID',
         )
         ->addColumn(
             'checkout_session_id',
@@ -82,7 +83,7 @@ if (!$connection->isTableExists($tableName)) {
             [
                 'nullable' => true,
             ],
-            'Stripe Checkout Session ID'
+            'Stripe Checkout Session ID',
         )
         ->addColumn(
             'status',
@@ -91,7 +92,7 @@ if (!$connection->isTableExists($tableName)) {
             [
                 'nullable' => false,
             ],
-            'Transaction Status'
+            'Transaction Status',
         )
         ->addColumn(
             'amount',
@@ -100,7 +101,7 @@ if (!$connection->isTableExists($tableName)) {
             [
                 'nullable' => false,
             ],
-            'Transaction Amount'
+            'Transaction Amount',
         )
         ->addColumn(
             'currency',
@@ -109,7 +110,7 @@ if (!$connection->isTableExists($tableName)) {
             [
                 'nullable' => false,
             ],
-            'Currency Code'
+            'Currency Code',
         )
         ->addColumn(
             'payment_method_type',
@@ -118,7 +119,7 @@ if (!$connection->isTableExists($tableName)) {
             [
                 'nullable' => false,
             ],
-            'Payment Method Type'
+            'Payment Method Type',
         )
         ->addColumn(
             'created_at',
@@ -128,7 +129,7 @@ if (!$connection->isTableExists($tableName)) {
                 'nullable' => false,
                 'default'  => Varien_Db_Ddl_Table::TIMESTAMP_INIT,
             ],
-            'Created At'
+            'Created At',
         )
         ->addColumn(
             'updated_at',
@@ -138,15 +139,15 @@ if (!$connection->isTableExists($tableName)) {
                 'nullable' => true,
                 'default'  => null,
             ],
-            'Updated At'
+            'Updated At',
         )
         ->addIndex(
             $installer->getIdxName($tableName, ['order_id']),
-            ['order_id']
+            ['order_id'],
         )
         ->addIndex(
             $installer->getIdxName($tableName, ['payment_intent_id']),
-            ['payment_intent_id']
+            ['payment_intent_id'],
         )
         ->setComment('MageAustralia Stripe Transactions');
 

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /**
@@ -35,22 +36,22 @@ declare(strict_types=1);
 
 class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
 {
-    const XPATH_MODULE_ACTIVE = 'payment/stripe/active';
-    const XPATH_MODE = 'payment/stripe/mode';
-    const XPATH_SECRET_KEY_TEST = 'payment/stripe/secret_key_test';
-    const XPATH_SECRET_KEY_LIVE = 'payment/stripe/secret_key_live';
-    const XPATH_PUBLISHABLE_KEY_TEST = 'payment/stripe/publishable_key_test';
-    const XPATH_PUBLISHABLE_KEY_LIVE = 'payment/stripe/publishable_key_live';
-    const XPATH_WEBHOOK_SECRET_TEST = 'payment/stripe/webhook_secret_test';
-    const XPATH_WEBHOOK_SECRET_LIVE = 'payment/stripe/webhook_secret_live';
-    const XPATH_DEBUG = 'payment/stripe/debug';
-    const XPATH_STATUS_PENDING = 'payment/stripe/order_status_pending';
-    const XPATH_STATUS_PROCESSING = 'payment/stripe/order_status_processing';
+    public const XPATH_MODULE_ACTIVE = 'payment/stripe/active';
+    public const XPATH_MODE = 'payment/stripe/mode';
+    public const XPATH_SECRET_KEY_TEST = 'payment/stripe/secret_key_test';
+    public const XPATH_SECRET_KEY_LIVE = 'payment/stripe/secret_key_live';
+    public const XPATH_PUBLISHABLE_KEY_TEST = 'payment/stripe/publishable_key_test';
+    public const XPATH_PUBLISHABLE_KEY_LIVE = 'payment/stripe/publishable_key_live';
+    public const XPATH_WEBHOOK_SECRET_TEST = 'payment/stripe/webhook_secret_test';
+    public const XPATH_WEBHOOK_SECRET_LIVE = 'payment/stripe/webhook_secret_live';
+    public const XPATH_DEBUG = 'payment/stripe/debug';
+    public const XPATH_STATUS_PENDING = 'payment/stripe/order_status_pending';
+    public const XPATH_STATUS_PROCESSING = 'payment/stripe/order_status_processing';
 
     /**
      * Zero-decimal currencies where amounts are NOT multiplied by 100
      */
-    const ZERO_DECIMAL_CURRENCIES = [
+    public const ZERO_DECIMAL_CURRENCIES = [
         'BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA',
         'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF',
     ];
@@ -58,11 +59,13 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
     /**
      * Method code to Stripe payment_method_type mapping
      */
-    const METHOD_TYPE_MAP = [
+    public const METHOD_TYPE_MAP = [
         'stripe_card'       => 'card',
         'stripe_ideal'      => 'ideal',
         'stripe_bancontact' => 'bancontact',
         'stripe_sepa'       => 'sepa_debit',
+        'stripe_becs'       => 'au_becs_debit',
+        'stripe_payto'      => 'payto',
         'stripe_klarna'     => 'klarna',
         'stripe_paypal'     => 'paypal',
         'stripe_applepay'   => 'card',
@@ -98,9 +101,9 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function getMode(?int $storeId = null): string
     {
-        $cacheKey = (string)$storeId;
+        $cacheKey = (string) $storeId;
         if (!array_key_exists($cacheKey, $this->modes)) {
-            $this->modes[$cacheKey] = (string)$this->getStoreConfig(self::XPATH_MODE, $storeId);
+            $this->modes[$cacheKey] = (string) $this->getStoreConfig(self::XPATH_MODE, $storeId);
         }
 
         return $this->modes[$cacheKey] ?: 'test';
@@ -117,7 +120,7 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
             $value = Mage::getStoreConfig($path);
         }
 
-        return $value !== null ? trim((string)$value) : null;
+        return $value !== null ? trim((string) $value) : null;
     }
 
     /**
@@ -125,7 +128,7 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function getSecretKey(?int $storeId = null): string
     {
-        $cacheKey = (string)$storeId;
+        $cacheKey = (string) $storeId;
         if (array_key_exists($cacheKey, $this->secretKeys)) {
             return $this->secretKeys[$cacheKey];
         }
@@ -133,7 +136,7 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
         $mode = $this->getMode($storeId);
         $xpath = ($mode === 'live') ? self::XPATH_SECRET_KEY_LIVE : self::XPATH_SECRET_KEY_TEST;
 
-        $key = trim((string)Mage::helper('core')->decrypt((string)$this->getStoreConfig($xpath, $storeId)));
+        $key = trim((string) Mage::helper('core')->decrypt((string) $this->getStoreConfig($xpath, $storeId)));
 
         if (empty($key)) {
             $this->addToLog('error', Mage::helper('stripe')->__('Stripe secret key not set (%s mode)', $mode));
@@ -145,7 +148,7 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
         if (strpos($key, $expectedPrefix) !== 0) {
             $this->addToLog(
                 'error',
-                Mage::helper('stripe')->__('Stripe set to %s mode, but secret key does not start with "%s"', $mode, $expectedPrefix)
+                Mage::helper('stripe')->__('Stripe set to %s mode, but secret key does not start with "%s"', $mode, $expectedPrefix),
             );
         }
 
@@ -161,7 +164,7 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
         $mode = $this->getMode($storeId);
         $xpath = ($mode === 'live') ? self::XPATH_PUBLISHABLE_KEY_LIVE : self::XPATH_PUBLISHABLE_KEY_TEST;
 
-        $key = trim((string)Mage::helper('core')->decrypt((string)$this->getStoreConfig($xpath, $storeId)));
+        $key = trim((string) Mage::helper('core')->decrypt((string) $this->getStoreConfig($xpath, $storeId)));
 
         if (empty($key)) {
             $this->addToLog('error', Mage::helper('stripe')->__('Stripe publishable key not set (%s mode)', $mode));
@@ -172,7 +175,7 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
         if (strpos($key, $expectedPrefix) !== 0) {
             $this->addToLog(
                 'error',
-                Mage::helper('stripe')->__('Stripe set to %s mode, but publishable key does not start with "%s"', $mode, $expectedPrefix)
+                Mage::helper('stripe')->__('Stripe set to %s mode, but publishable key does not start with "%s"', $mode, $expectedPrefix),
             );
         }
 
@@ -187,7 +190,7 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
         $mode = $this->getMode($storeId);
         $xpath = ($mode === 'live') ? self::XPATH_WEBHOOK_SECRET_LIVE : self::XPATH_WEBHOOK_SECRET_TEST;
 
-        $key = trim((string)Mage::helper('core')->decrypt((string)$this->getStoreConfig($xpath, $storeId)));
+        $key = trim((string) Mage::helper('core')->decrypt((string) $this->getStoreConfig($xpath, $storeId)));
 
         if (empty($key)) {
             $this->addToLog('error', Mage::helper('stripe')->__('Stripe webhook secret not set (%s mode)', $mode));
@@ -197,7 +200,7 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
         if (strpos($key, 'whsec_') !== 0) {
             $this->addToLog(
                 'error',
-                Mage::helper('stripe')->__('Stripe webhook secret does not start with "whsec_"')
+                Mage::helper('stripe')->__('Stripe webhook secret does not start with "whsec_"'),
             );
         }
 
@@ -209,7 +212,7 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function getStripeClient(?int $storeId = null): \Stripe\StripeClient
     {
-        $cacheKey = (string)$storeId;
+        $cacheKey = (string) $storeId;
         if (array_key_exists($cacheKey, $this->stripeClients)) {
             return $this->stripeClients[$cacheKey];
         }
@@ -260,7 +263,7 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function getStatusPending(?int $storeId = null): string
     {
-        return (string)$this->getStoreConfig(self::XPATH_STATUS_PENDING, $storeId);
+        return (string) $this->getStoreConfig(self::XPATH_STATUS_PENDING, $storeId);
     }
 
     /**
@@ -268,7 +271,7 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function getStatusProcessing(?int $storeId = null): string
     {
-        return (string)$this->getStoreConfig(self::XPATH_STATUS_PROCESSING, $storeId);
+        return (string) $this->getStoreConfig(self::XPATH_STATUS_PROCESSING, $storeId);
     }
 
     /**
@@ -280,10 +283,10 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
         $currency = strtoupper($currency);
 
         if (in_array($currency, self::ZERO_DECIMAL_CURRENCIES, true)) {
-            return (int)round($amount);
+            return (int) round($amount);
         }
 
-        return (int)round($amount * 100);
+        return (int) round($amount * 100);
     }
 
     /**
@@ -294,10 +297,10 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
         $currency = strtoupper($currency);
 
         if (in_array($currency, self::ZERO_DECIMAL_CURRENCIES, true)) {
-            return (float)$amount;
+            return (float) $amount;
         }
 
-        return (float)($amount / 100);
+        return (float) ($amount / 100);
     }
 
     /**
@@ -315,7 +318,7 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
     {
         $cacheKey = 'default';
         if (!array_key_exists($cacheKey, $this->debug)) {
-            $this->debug[$cacheKey] = (bool)$this->getStoreConfig(self::XPATH_DEBUG);
+            $this->debug[$cacheKey] = (bool) $this->getStoreConfig(self::XPATH_DEBUG);
         }
 
         if ($this->debug[$cacheKey]) {

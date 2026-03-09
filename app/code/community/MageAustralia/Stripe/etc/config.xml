@@ -46,6 +46,17 @@
                 <stripe>Stripe Payment Methods</stripe>
             </groups>
         </payment>
+        <events>
+            <api_store_config_dto_build>
+                <observers>
+                    <stripe_register_payment_plugin>
+                        <type>singleton</type>
+                        <class>MageAustralia_Stripe_Model_Observer</class>
+                        <method>registerStorefrontPaymentPlugin</method>
+                    </stripe_register_payment_plugin>
+                </observers>
+            </api_store_config_dto_build>
+        </events>
     </global>
     <frontend>
         <routers>
@@ -165,6 +176,22 @@
                 <group>stripe</group>
                 <allowspecific>0</allowspecific>
             </stripe_sepa>
+            <stripe_becs>
+                <active>0</active>
+                <model>stripe/method_becs</model>
+                <title>BECS Direct Debit</title>
+                <sort_order>62</sort_order>
+                <group>stripe</group>
+                <allowspecific>0</allowspecific>
+            </stripe_becs>
+            <stripe_payto>
+                <active>0</active>
+                <model>stripe/method_payto</model>
+                <title>PayTo</title>
+                <sort_order>63</sort_order>
+                <group>stripe</group>
+                <allowspecific>0</allowspecific>
+            </stripe_payto>
             <stripe_applepay>
                 <active>0</active>
                 <model>stripe/method_applepay</model>

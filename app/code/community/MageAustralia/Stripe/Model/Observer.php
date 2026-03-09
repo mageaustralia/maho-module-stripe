@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /**
@@ -56,7 +57,7 @@ class MageAustralia_Stripe_Model_Observer
             return;
         }
 
-        if (!$order->getPayment() || stripos((string)$order->getPayment()->getMethod(), 'stripe') === false) {
+        if (!$order->getPayment() || stripos((string) $order->getPayment()->getMethod(), 'stripe') === false) {
             return;
         }
 
@@ -69,5 +70,48 @@ class MageAustralia_Stripe_Model_Observer
         } catch (\Exception $e) {
             Mage::logException($e);
         }
+    }
+
+    /**
+     * Register Stripe as a storefront payment plugin via the store-config API.
+     * This allows the headless storefront to auto-load the Stripe Elements
+     * script and publishable key without any frontend configuration.
+     */
+    public function registerStorefrontPaymentPlugin(Varien_Event_Observer $observer): void
+    {
+        $dto = $observer->getEvent()->getDto();
+        if (!property_exists($dto, 'extensions')) {
+            return;
+        }
+
+        $helper = Mage::helper('stripe');
+
+        // Only register if at least one Stripe method is active
+        $hasActiveMethod = false;
+        foreach (array_keys(MageAustralia_Stripe_Helper_Data::METHOD_TYPE_MAP) as $methodCode) {
+            if (Mage::getStoreConfigFlag("payment/{$methodCode}/active")) {
+                $hasActiveMethod = true;
+                break;
+            }
+        }
+
+        if (!$hasActiveMethod) {
+            return;
+        }
+
+        $publishableKey = $helper->getPublishableKey();
+        if (empty($publishableKey)) {
+            return;
+        }
+
+        $plugins = $dto->extensions['paymentPlugins'] ?? [];
+        $plugins[] = [
+            'code'   => 'stripe',
+            'script' => '/plugins/stripe-payment.js',
+            'config' => [
+                'STRIPE_PUBLISHABLE_KEY' => $publishableKey,
+            ],
+        ];
+        $dto->extensions['paymentPlugins'] = $plugins;
     }
 }

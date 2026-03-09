@@ -66,6 +66,10 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
     public function preDispatch(): static
     {
         if ($this->getRequest()->getActionName() === 'webhook') {
+            // Webhook requests have no session/cookies.
+            // Initialize a core session to prevent visitor log observer crash.
+            Mage::getSingleton('core/session', ['name' => 'frontend']);
+            // Bypass CSRF: webhook is verified by Stripe signature, not form key
             $this->getRequest()->setParam('form_key', Mage::getSingleton('core/session')->getFormKey());
         }
         return parent::preDispatch();
@@ -134,6 +138,16 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
         }
 
         if (!empty($status['success'])) {
+            // Storefront orders: redirect back to storefront success page with order token
+            $order = Mage::getModel('sales/order')->load($orderId);
+            $storefrontOrigin = $order->getData('storefront_origin');
+            if ($storefrontOrigin) {
+                $token = $order->getData('storefront_order_token');
+                $incrementId = $order->getIncrementId();
+                $url = rtrim($storefrontOrigin, '/') . '/order/success?order=' . urlencode($incrementId) . '&token=' . urlencode($token);
+                $this->_redirectUrl($url);
+                return;
+            }
             $this->_redirect('checkout/onepage/success', ['_query' => 'utm_nooverride=1']);
             return;
         } else {

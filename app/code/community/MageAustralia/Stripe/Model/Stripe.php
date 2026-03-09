@@ -299,6 +299,14 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
             return ['success' => true, 'status' => 'paid', 'order_id' => $orderId, 'type' => $type];
         }
 
+        // Async payment methods (BECS, PayTo, SEPA): session is complete but payment is still processing.
+        // Treat as success on return so customer sees the success page; webhook confirms actual payment later.
+        if ($paymentStatus === 'unpaid' && $type !== 'webhook' && $session->status === 'complete') {
+            $this->checkCheckoutSession($order, $paymentToken);
+            $order->save();
+            return ['success' => true, 'status' => 'processing', 'order_id' => $orderId, 'type' => $type];
+        }
+
         // Unpaid
         if ($paymentStatus === 'unpaid') {
             if ($session->status === 'expired' && $type === 'webhook') {
@@ -402,6 +410,51 @@ class MageAustralia_Stripe_Model_Stripe extends Mage_Payment_Model_Method_Abstra
             $payment->setAdditionalInformation('seller_message', $outcome->seller_message ?? null);
             $payment->setAdditionalInformation('network_status', $outcome->network_status ?? null);
         }
+
+        // BECS Direct Debit (AU)
+        $becs = $charge->payment_method_details->au_becs_debit ?? null;
+        if ($becs !== null) {
+            $payment->setAdditionalInformation('becs_bsb', $becs->bsb_number ?? null);
+            $payment->setAdditionalInformation('becs_last4', $becs->last4 ?? null);
+            $payment->setAdditionalInformation('becs_mandate', $becs->mandate ?? null);
+            $payment->setAdditionalInformation('becs_fingerprint', $becs->fingerprint ?? null);
+        }
+
+        // SEPA Direct Debit
+        $sepa = $charge->payment_method_details->sepa_debit ?? null;
+        if ($sepa !== null) {
+            $payment->setAdditionalInformation('sepa_last4', $sepa->last4 ?? null);
+            $payment->setAdditionalInformation('sepa_bank_code', $sepa->bank_code ?? null);
+            $payment->setAdditionalInformation('sepa_country', $sepa->country ?? null);
+            $payment->setAdditionalInformation('sepa_mandate', $sepa->mandate_reference ?? null);
+            $payment->setAdditionalInformation('sepa_fingerprint', $sepa->fingerprint ?? null);
+        }
+
+        // PayTo
+        $payto = $charge->payment_method_details->payto ?? null;
+        if ($payto !== null) {
+            $payment->setAdditionalInformation('payto_bsb', $payto->bsb_number ?? null);
+            $payment->setAdditionalInformation('payto_last4', $payto->last4 ?? null);
+            $payment->setAdditionalInformation('payto_mandate_id', $payto->mandate_id ?? null);
+            $payment->setAdditionalInformation('payto_pay_id', $payto->pay_id ?? null);
+        }
+
+        // Klarna
+        $klarna = $charge->payment_method_details->klarna ?? null;
+        if ($klarna !== null) {
+            $payment->setAdditionalInformation('klarna_payment_method', $klarna->payment_method_category ?? null);
+        }
+
+        // PayPal
+        $paypal = $charge->payment_method_details->paypal ?? null;
+        if ($paypal !== null) {
+            $payment->setAdditionalInformation('paypal_payer_email', $paypal->payer_email ?? null);
+            $payment->setAdditionalInformation('paypal_payer_id', $paypal->payer_id ?? null);
+            $payment->setAdditionalInformation('paypal_transaction_id', $paypal->transaction_id ?? null);
+        }
+
+        // Payment method type (card, au_becs_debit, klarna, paypal, etc.)
+        $payment->setAdditionalInformation('payment_method_type', $charge->payment_method_details->type ?? null);
 
         // Charge ID for reference
         $payment->setAdditionalInformation('stripe_charge_id', $charge->id ?? null);

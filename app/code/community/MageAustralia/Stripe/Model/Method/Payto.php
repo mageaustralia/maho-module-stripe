@@ -13,7 +13,7 @@ declare(strict_types=1);
  * @license     http://www.opensource.org/licenses/bsd-license.php  BSD-License 2
  */
 
-class MageAustralia_Stripe_Model_Method_Applepay extends MageAustralia_Stripe_Model_Method_Abstract
+class MageAustralia_Stripe_Model_Method_Payto extends MageAustralia_Stripe_Model_Method_Abstract
 {
-    protected $_code = 'stripe_applepay';
+    protected $_code = 'stripe_payto';
 }

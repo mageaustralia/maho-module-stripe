@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /**
@@ -60,7 +61,7 @@ class MageAustralia_Stripe_Block_Payment_Redirect extends Mage_Core_Block_Templa
         }
 
         try {
-            $stripe = $helper->getStripeClient((int)$order->getStoreId());
+            $stripe = $helper->getStripeClient((int) $order->getStoreId());
             $session = $stripe->checkout->sessions->retrieve($sessionId);
             return $session->url;
         } catch (\Exception $e) {
