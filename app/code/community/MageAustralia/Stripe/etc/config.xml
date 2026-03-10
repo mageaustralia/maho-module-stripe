@@ -152,6 +152,13 @@
                 <group>stripe</group>
                 <allowspecific>0</allowspecific>
             </stripe_bancontact>
+            <stripe_afterpay>
+                <active>0</active>
+                <model>stripe/method_afterpay</model>
+                <title>Afterpay</title>
+                <sort_order>35</sort_order>
+                <group>stripe</group>
+            </stripe_afterpay>
             <stripe_klarna>
                 <active>0</active>
                 <model>stripe/method_klarna</model>

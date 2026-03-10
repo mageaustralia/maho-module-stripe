@@ -66,6 +66,7 @@ class MageAustralia_Stripe_Helper_Data extends Mage_Core_Helper_Abstract
         'stripe_sepa'       => 'sepa_debit',
         'stripe_becs'       => 'au_becs_debit',
         'stripe_payto'      => 'payto',
+        'stripe_afterpay'   => 'afterpay_clearpay',
         'stripe_klarna'     => 'klarna',
         'stripe_paypal'     => 'paypal',
         'stripe_applepay'   => 'card',
