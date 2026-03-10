@@ -32,4 +32,8 @@ class StripeConfig
     /** Integration mode: 'elements' or 'checkout' */
     #[ApiProperty(writable: false)]
     public ?string $integrationMode = null;
+
+    /** Stripe secret key — only populated for authenticated storefront sync requests */
+    #[ApiProperty(writable: false)]
+    public ?string $secretKey = null;
 }
