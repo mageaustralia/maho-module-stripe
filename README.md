@@ -6,17 +6,20 @@ Stripe payment gateway integration for [Maho](https://mahocommerce.com), the ope
 
 ## Supported Payment Methods
 
-| Method | Type |
-|--------|------|
-| Credit / Debit Card | Stripe Elements (embedded) or Stripe Checkout |
-| iDEAL | Redirect via Stripe Checkout |
-| Bancontact | Redirect via Stripe Checkout |
-| Klarna | Redirect via Stripe Checkout |
-| PayPal | Redirect via Stripe Checkout |
-| SEPA Direct Debit | Redirect via Stripe Checkout |
-| Apple Pay | Stripe Elements / Payment Request Button |
-| Google Pay | Stripe Elements / Payment Request Button |
-| Stripe Link | Stripe Elements |
+| Method | Type | Regions |
+|--------|------|---------|
+| Credit / Debit Card | Stripe Elements (embedded) or Stripe Checkout | Global |
+| Afterpay / Clearpay | Redirect via Stripe Checkout | Australia, Canada, NZ, US, UK |
+| Klarna | Redirect via Stripe Checkout | Global |
+| PayPal | Redirect via Stripe Checkout | Global |
+| BECS Direct Debit (AU) | Redirect via Stripe Checkout | Australia |
+| PayTo | Redirect via Stripe Checkout | Australia |
+| iDEAL | Redirect via Stripe Checkout | Netherlands |
+| Bancontact | Redirect via Stripe Checkout | Belgium |
+| SEPA Direct Debit | Redirect via Stripe Checkout | Europe |
+| Apple Pay | Stripe Elements / Payment Request Button | Global |
+| Google Pay | Stripe Elements / Payment Request Button | Global |
+| Stripe Link | Stripe Elements | Global |
 
 ## Requirements
 
@@ -82,7 +85,7 @@ Best for: stores that want a seamless checkout experience without leaving the si
 
 ## Features
 
-- **Multiple payment methods** -- Credit cards, iDEAL, Bancontact, Klarna, PayPal, SEPA, Apple Pay, Google Pay, and Stripe Link
+- **Multiple payment methods** -- Credit cards, Afterpay, Klarna, PayPal, BECS, PayTo, iDEAL, Bancontact, SEPA, Apple Pay, Google Pay, and Stripe Link
 - **Stripe Checkout and Elements** -- Choose between hosted payment page or embedded card form
 - **Automatic order status updates** -- Webhook-driven order state management
 - **Refunds from admin** -- Process full and partial refunds directly from the Maho admin panel
