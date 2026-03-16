@@ -17,6 +17,7 @@ use MageAustralia\Stripe\Api\State\Provider\StripeConfigProvider;
         new Get(
             uriTemplate: '/payments/stripe/config',
             description: 'Get Stripe publishable key for frontend SDK initialization',
+            security: "true",
         ),
     ],
 )]

@@ -17,6 +17,7 @@ use MageAustralia\Stripe\Api\State\Processor\PaymentIntentProcessor;
         new Post(
             uriTemplate: '/payments/stripe/payment-intents',
             description: 'Create a PaymentIntent for the given cart',
+            security: "true",
         ),
     ],
 )]
