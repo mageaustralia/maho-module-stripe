@@ -2,7 +2,10 @@
 <layout>
     <checkout_onepage_index>
         <reference name="head">
-            <action method="addItem"><type>external_js</type><name>https://js.stripe.com/v3/</name></action>
+            <block type="core/text" name="stripe_js">
+                <action method="setText"><text><![CDATA[<script src="https://js.stripe.com/v3/"></script>]]></text></action>
+            </block>
+            <action method="addItem"><type>skin_js</type><name>js/stripe-elements-checkout.js</name></action>
         </reference>
     </checkout_onepage_index>
     <stripe_payment_payment_redirect>
