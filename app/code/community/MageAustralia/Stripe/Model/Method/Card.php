@@ -66,12 +66,13 @@ class MageAustralia_Stripe_Model_Method_Card extends MageAustralia_Stripe_Model_
     }
 
     /**
-     * In elements mode, force authorize action so authorize() is called during order placement.
+     * Elements mode uses authorize_capture so Maho creates the invoice automatically.
+     * Checkout (redirect) mode uses the parent config (typically authorize_capture too).
      */
     public function getConfigPaymentAction(): ?string
     {
         if ($this->_isElementsMode()) {
-            return Mage_Payment_Model_Method_Abstract::ACTION_AUTHORIZE;
+            return Mage_Payment_Model_Method_Abstract::ACTION_AUTHORIZE_CAPTURE;
         }
 
         return parent::getConfigPaymentAction();
@@ -100,9 +101,14 @@ class MageAustralia_Stripe_Model_Method_Card extends MageAustralia_Stripe_Model_
     }
 
     /**
-     * Authorize: verify the PaymentIntent was confirmed client-side and store charge details.
+     * Capture: verify the PaymentIntent was confirmed + captured by Stripe,
+     * store charge details. Maho calls this for authorize_capture action and
+     * handles invoice creation + total_paid automatically.
+     *
+     * In Elements mode the PI is already captured client-side (status: succeeded).
+     * We just verify and record the details — same flow as Braintree/Payway.
      */
-    public function authorize(\Maho\DataObject $payment, $amount): static
+    public function capture(\Maho\DataObject $payment, $amount): static
     {
         $piId = $payment->getAdditionalInformation('stripe_payment_intent_id');
 
@@ -132,7 +138,7 @@ class MageAustralia_Stripe_Model_Method_Card extends MageAustralia_Stripe_Model_
 
         // Verify amount matches
         $currency = strtolower($order->getOrderCurrencyCode());
-        $expectedAmount = $this->getStripeHelper()->formatAmountForStripe((float) $order->getGrandTotal(), $currency);
+        $expectedAmount = $this->getStripeHelper()->formatAmountForStripe((float) $amount, $currency);
 
         if ($pi->amount !== $expectedAmount || strtolower($pi->currency) !== $currency) {
             $this->getStripeHelper()->addToLog('error', [
@@ -148,18 +154,19 @@ class MageAustralia_Stripe_Model_Method_Card extends MageAustralia_Stripe_Model_
         // Store PI ID on the order for refunds/lookups
         $order->setStripePaymentIntentId($piId);
 
-        // Mark checkout type so webhook knows this was handled inline
+        // Mark checkout type
         $payment->setAdditionalInformation('checkout_type', 'elements');
         $payment->setAdditionalInformation('payment_status', $pi->status);
 
-        // Store charge details (card, 3DS, risk)
+        // Store charge details (card brand, last4, 3DS, risk, etc.)
         $charge = $pi->latest_charge ?? null;
         if ($charge !== null) {
             $this->storeChargeDetails($payment, $charge);
         }
 
-        // Set transaction
-        $payment->setTransactionId($piId);
+        // Set transaction ID — use charge ID so invoice links to the actual Stripe charge
+        $transactionId = $charge->id ?? $piId;
+        $payment->setTransactionId($transactionId);
         $payment->setIsTransactionClosed(true);
 
         // Send order email
@@ -173,8 +180,9 @@ class MageAustralia_Stripe_Model_Method_Card extends MageAustralia_Stripe_Model_
             }
         }
 
-        $this->getStripeHelper()->addToLog('authorize', [
+        $this->getStripeHelper()->addToLog('capture', [
             'pi_id' => $piId,
+            'charge_id' => $charge->id ?? null,
             'order' => $order->getIncrementId(),
             'amount' => $expectedAmount,
             'status' => $pi->status,
