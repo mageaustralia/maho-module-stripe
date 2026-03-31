@@ -113,4 +113,13 @@ class MageAustralia_Stripe_Adminhtml_StripeController extends Mage_Adminhtml_Con
     {
         return Mage::getSingleton('admin/session')->isAllowed('admin/system/config/stripe');
     }
+
+    /**
+     * Redirect to the external Stripe Dashboard.
+     * Admin menu <action> tags cannot hold external URLs — this controller action bridges the gap.
+     */
+    public function dashboardAction(): void
+    {
+        $this->_redirectUrl('https://dashboard.stripe.com');
+    }
 }

@@ -13,7 +13,7 @@
                 <dashboard translate="title" module="stripe">
                     <title>Stripe Dashboard <![CDATA[[&rarr;]]]></title>
                     <sort_order>20</sort_order>
-                    <action>https://dashboard.stripe.com</action>
+                    <action>adminhtml/stripe/dashboard</action>
                 </dashboard>
             </children>
         </stripe>
