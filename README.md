@@ -1,5 +1,8 @@
 # MageAustralia_Stripe for Maho
 
+[![CI](https://github.com/mageaustralia/maho-module-stripe/actions/workflows/ci.yml/badge.svg)](https://github.com/mageaustralia/maho-module-stripe/actions/workflows/ci.yml)
+[![License: BSD-2-Clause](https://img.shields.io/badge/license-BSD--2--Clause-blue.svg)](LICENSE)
+
 > **Alpha Release** -- This module is under active development and has not been extensively tested in production. Community feedback, bug reports, and pull requests are welcome.
 
 Stripe payment gateway integration for [Maho](https://mahocommerce.com), the open-source e-commerce platform.
