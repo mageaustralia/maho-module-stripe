@@ -6,7 +6,7 @@
     "keywords": ["maho", "stripe", "payment", "creditcard", "ideal", "klarna", "paypal", "sepa", "apple-pay", "google-pay", "bancontact"],
     "require": {
         "php": ">=8.3",
-        "mahocommerce/maho": ">=24.12",
+        "mahocommerce/maho": "^24.12",
         "stripe/stripe-php": "^16.0 || ^17.0 || ^18.0 || ^19.0"
     },
     "authors": [
