@@ -49,6 +49,7 @@ class MageAustralia_Stripe_Adminhtml_StripeController extends Mage_Adminhtml_Con
     /**
      * Test Stripe API connectivity
      */
+    #[\Maho\Config\Route('/admin/stripe/apiTest')]
     public function apiTestAction(): void
     {
         /** @var MageAustralia_Stripe_Helper_Data $helper */
@@ -118,6 +119,7 @@ class MageAustralia_Stripe_Adminhtml_StripeController extends Mage_Adminhtml_Con
      * Redirect to the external Stripe Dashboard.
      * Admin menu <action> tags cannot hold external URLs — this controller action bridges the gap.
      */
+    #[\Maho\Config\Route('/admin/stripe/dashboard')]
     public function dashboardAction(): void
     {
         $this->_redirectUrl('https://dashboard.stripe.com');
