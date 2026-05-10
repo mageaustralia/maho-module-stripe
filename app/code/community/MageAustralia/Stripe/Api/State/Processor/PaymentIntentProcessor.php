@@ -58,25 +58,10 @@ class PaymentIntentProcessor implements ProcessorInterface
             return null;
         }
 
-        // Database lookup - same approach as CartService::getCartIdFromMaskedId
-        $resource = \Mage::getSingleton('core/resource');
-        $read = $resource->getConnection('core_read');
-        $quoteTable = $resource->getTableName('sales/quote');
-
-        $quoteId = $read->fetchOne(
-            $read->select()
-                ->from($quoteTable, ['entity_id'])
-                ->where('masked_quote_id = ?', $maskedId)
-                ->where('is_active = ?', 1),
-        );
-
-        if (!$quoteId) {
-            return null;
-        }
-
+        // Load directly via the quote model using the masked_quote_id field
         /** @var \Mage_Sales_Model_Quote $quote */
-        $quote = \Mage::getModel('sales/quote')->loadByIdWithoutStore((int) $quoteId);
-        if (!$quote->getId()) {
+        $quote = \Mage::getModel('sales/quote')->load($maskedId, 'masked_quote_id');
+        if (!$quote->getId() || !$quote->getIsActive()) {
             return null;
         }
 
