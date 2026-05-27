@@ -101,12 +101,18 @@ class MageAustralia_Stripe_Model_Method_Card extends MageAustralia_Stripe_Model_
     }
 
     /**
-     * Capture: verify the PaymentIntent was confirmed + captured by Stripe,
-     * store charge details. Maho calls this for authorize_capture action and
-     * handles invoice creation + total_paid automatically.
+     * Capture: pull money from the customer's card.
      *
-     * In Elements mode the PI is already captured client-side (status: succeeded).
-     * We just verify and record the details — same flow as Braintree/Payway.
+     * The storefront creates the PaymentIntent with `capture_method=manual`,
+     * meaning `stripe.confirmCardPayment` only AUTHORISES the card. Money
+     * doesn't actually move until we call paymentIntents->capture here —
+     * which means a Maho order placement failure (validation, race, DB
+     * outage, anything) before this method runs leaves the customer with
+     * an auth that auto-releases instead of a real charge.
+     *
+     * Legacy flows that auto-captured client-side (PI status already
+     * `succeeded` on entry) are still supported for in-flight transactions
+     * and downstream modules that capture without going through here.
      */
     public function capture(\Maho\DataObject $payment, $amount): static
     {
@@ -130,13 +136,10 @@ class MageAustralia_Stripe_Model_Method_Card extends MageAustralia_Stripe_Model_
             Mage::throwException(Mage::helper('stripe')->__('Could not verify payment: %s', $e->getMessage()));
         }
 
-        // Verify the PI succeeded
-        if ($pi->status !== 'succeeded') {
-            $this->getStripeHelper()->addToLog('error', Mage::helper('stripe')->__('PI status is %s, expected succeeded', $pi->status));
-            Mage::throwException(Mage::helper('stripe')->__('Payment was not completed. Status: %s', $pi->status));
-        }
-
-        // Verify amount matches
+        // Verify amount + currency BEFORE we call capture. A mismatch here
+        // means the order total diverged from what the customer authorised,
+        // and we must not capture — call paymentIntents->cancel to release
+        // the auth so the customer isn't charged.
         $currency = strtolower($order->getOrderCurrencyCode());
         $expectedAmount = $this->getStripeHelper()->formatAmountForStripe((float) $amount, $currency);
 
@@ -148,7 +151,36 @@ class MageAustralia_Stripe_Model_Method_Card extends MageAustralia_Stripe_Model_
                 'pi_currency' => $pi->currency,
                 'expected_currency' => $currency,
             ]);
+            // Auth-only state? Release the auth. Already captured? Leave as-is
+            // (refund path is the appropriate remediation in that case).
+            if (in_array($pi->status, ['requires_capture', 'requires_payment_method', 'requires_confirmation', 'requires_action'], true)) {
+                try {
+                    $stripe->paymentIntents->cancel($piId);
+                    $this->getStripeHelper()->addToLog('cancel', ['pi_id' => $piId, 'reason' => 'amount_mismatch']);
+                } catch (\Exception $e) {
+                    $this->getStripeHelper()->addToLog('error', Mage::helper('stripe')->__('Failed to cancel PI %s: %s', $piId, $e->getMessage()));
+                }
+            }
             Mage::throwException(Mage::helper('stripe')->__('Payment amount does not match the order total.'));
+        }
+
+        // If the PI is in requires_capture state, capture it now (manual-capture
+        // flow). If it's already succeeded, the storefront created it with
+        // capture_method=automatic (legacy/PRB paths) and we just record.
+        if ($pi->status === 'requires_capture') {
+            try {
+                $pi = $stripe->paymentIntents->capture($piId, [], [
+                    'expand' => ['latest_charge'],
+                ]);
+            } catch (\Exception $e) {
+                $this->getStripeHelper()->addToLog('error', Mage::helper('stripe')->__('PI capture failed: %s', $e->getMessage()));
+                Mage::throwException(Mage::helper('stripe')->__('Could not capture payment: %s', $e->getMessage()));
+            }
+        }
+
+        if ($pi->status !== 'succeeded') {
+            $this->getStripeHelper()->addToLog('error', Mage::helper('stripe')->__('PI status is %s after capture attempt, expected succeeded', $pi->status));
+            Mage::throwException(Mage::helper('stripe')->__('Payment was not completed. Status: %s', $pi->status));
         }
 
         // Store PI ID on the order for refunds/lookups
@@ -194,5 +226,39 @@ class MageAustralia_Stripe_Model_Method_Card extends MageAustralia_Stripe_Model_
     private function _isElementsMode(): bool
     {
         return $this->getStripeHelper()->getStoreConfig('payment/stripe_card/integration_mode') === 'elements';
+    }
+
+    /**
+     * Cancel: release a Stripe authorisation when Maho voids the order
+     * before capture (e.g. payment validation failed, order was cancelled
+     * from the admin before being invoiced). Called by Maho through the
+     * Mage_Payment_Model_Method_Abstract::cancel() hook.
+     *
+     * Only cancellable while the PI is in an auth-only state. Once it has
+     * been captured ('succeeded'), the customer has been charged and the
+     * correct remediation is a refund, not a cancel.
+     */
+    #[\Override]
+    public function cancel(\Maho\DataObject $payment): static
+    {
+        $piId = $payment->getAdditionalInformation('stripe_payment_intent_id');
+        if (!$piId || !str_starts_with($piId, 'pi_')) {
+            return $this;
+        }
+
+        $storeId = (int) $payment->getOrder()->getStoreId();
+        $stripe = $this->getStripeHelper()->getStripeClient($storeId);
+
+        try {
+            $pi = $stripe->paymentIntents->retrieve($piId);
+            if (in_array($pi->status, ['requires_capture', 'requires_payment_method', 'requires_confirmation', 'requires_action'], true)) {
+                $stripe->paymentIntents->cancel($piId);
+                $this->getStripeHelper()->addToLog('cancel', ['pi_id' => $piId, 'reason' => 'order_cancelled']);
+            }
+        } catch (\Exception $e) {
+            $this->getStripeHelper()->addToLog('error', Mage::helper('stripe')->__('Failed to cancel PI %s on order cancel: %s', $piId, $e->getMessage()));
+        }
+
+        return $this;
     }
 }

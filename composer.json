@@ -17,5 +17,10 @@
     ],
     "extra": {
         "maho-module-dir": "app/code/community/MageAustralia/Stripe"
+    },
+    "autoload": {
+        "psr-4": {
+            "MahoCLI\\Commands\\": "lib/MahoCLI/Commands/"
+        }
     }
 }
