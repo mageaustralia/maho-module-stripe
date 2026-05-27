@@ -105,4 +105,4 @@ Best for: stores that want a seamless checkout experience without leaving the si
 
 ## License
 
-This module is licensed under the [BSD-2-Clause License](LICENSE).
+This module is licensed under the [Open Software License 3.0 (OSL-3.0)](LICENSE), matching the Maho core.
