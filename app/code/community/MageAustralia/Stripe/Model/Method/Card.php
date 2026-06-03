@@ -169,7 +169,7 @@ class MageAustralia_Stripe_Model_Method_Card extends MageAustralia_Stripe_Model_
         // capture_method=automatic (legacy/PRB paths) and we just record.
         if ($pi->status === 'requires_capture') {
             try {
-                $pi = $stripe->paymentIntents->capture($piId, [], [
+                $pi = $stripe->paymentIntents->capture($piId, [
                     'expand' => ['latest_charge'],
                 ]);
             } catch (\Exception $e) {
