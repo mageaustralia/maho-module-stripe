@@ -39,6 +39,10 @@ class PaymentIntentProcessor implements ProcessorInterface
             throw new \InvalidArgumentException('Stripe Elements mode is not enabled');
         }
 
+        // Recalculate totals before deriving the charge amount, so a quote whose
+        // items changed since it was last saved cannot produce a stale grand total.
+        $quote->collectTotals();
+
         // Create PaymentIntent via the Stripe model
         /** @var \MageAustralia_Stripe_Model_Stripe $stripeModel */
         $stripeModel = \Mage::getModel('stripe/stripe');
