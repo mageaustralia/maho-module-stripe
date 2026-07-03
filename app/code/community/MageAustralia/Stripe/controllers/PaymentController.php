@@ -190,6 +190,21 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
 
         try {
             $result = $this->getStripeModel()->createPaymentIntent($quote);
+
+            // Persist the PaymentIntent ID onto the quote payment so
+            // Card::capture() can retrieve it after review.save() places
+            // the order. The default checkout's review.save only submits
+            // the order-review form (not the payment form), so the hidden
+            // #stripe-payment-intent-id field the JS populates never
+            // reaches Method\Card::assignData(). Without this the payment
+            // record ships with additional_information=NULL and capture()
+            // throws "Invalid or missing Payment Intent ID."
+            if (!empty($result['paymentIntentId'])) {
+                $payment = $quote->getPayment();
+                $payment->setAdditionalInformation('stripe_payment_intent_id', $result['paymentIntentId']);
+                $payment->save();
+            }
+
             $this->_sendJson($result);
         } catch (\Exception $e) {
             $this->getStripeHelper()->addToLog('error', $e->getMessage());
