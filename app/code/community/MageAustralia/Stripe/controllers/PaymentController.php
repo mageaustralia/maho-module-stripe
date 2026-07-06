@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Maho\Config\Route;
+
 /**
  * Copyright (c) 2026 Mage Australia Pty Ltd
  * All rights reserved.
@@ -78,6 +80,7 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
     /**
      * Redirect action: creates a Stripe Checkout session and redirects the customer
      */
+    #[Route('/stripe_payment/payment/redirect', methods: ['GET'])]
     public function redirectAction(): void
     {
         $order = null;
@@ -113,6 +116,7 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
     /**
      * Return action: customer returns from Stripe after payment
      */
+    #[Route('/stripe_payment/payment/return', methods: ['GET'])]
     public function returnAction(): void
     {
         $orderId = $this->getRequest()->getParam('order_id');
@@ -167,6 +171,7 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
      * Create a PaymentIntent for Stripe Elements inline checkout.
      * Returns JSON with clientSecret and paymentIntentId.
      */
+    #[Route('/stripe_payment/payment/createPaymentIntent', methods: ['POST'])]
     public function createPaymentIntentAction(): void
     {
         if (!$this->getRequest()->isPost()) {
@@ -218,6 +223,7 @@ class MageAustralia_Stripe_PaymentController extends Mage_Core_Controller_Front_
      * CRITICAL: Signature verification is mandatory. Without it, anyone could
      * spoof webhook calls and mark orders as paid.
      */
+    #[Route('/stripe_payment/payment/webhook', methods: ['POST'])]
     public function webhookAction(): void
     {
         if (!$this->getRequest()->isPost()) {
